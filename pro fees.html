@@ -460,6 +460,8 @@
         let currentUserRole = null;
         let feeChartInstance = null;
 
+        function escQ(s) { return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
         window.onload = function() {
             document.getElementById('currentDate').innerText = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
             document.getElementById('paymentDate').valueAsDate = new Date();
@@ -499,7 +501,7 @@
                     <td>${st.appNo || 'N/A'}</td>
                     <td style="font-size:12px;">${st.deletedAt || '-'}</td>
                     <td style="text-align:right;">
-                        <button onclick="restoreStudent('${name}')" class="btn-icon bg-success" title="Restore Record" style="padding: 6px 12px; font-weight:bold;"><i class="fa-solid fa-trash-can-arrow-up"></i> Restore</button>
+                        <button onclick="restoreStudent('${escQ(name)}')" class="btn-icon bg-success" title="Restore Record" style="padding: 6px 12px; font-weight:bold;"><i class="fa-solid fa-trash-can-arrow-up"></i> Restore</button>
                     </td>
                 </tr>`;
             });
@@ -631,10 +633,10 @@
                         <td style="font-weight:600;">₹${paid}</td>
                         <td style="color:${bal>0?'var(--danger)':'var(--success)'}; font-weight:800;">₹${bal}</td>
                         <td class="no-print" style="text-align:right; white-space: nowrap;">
-                            <button onclick="viewHistory('${name}')" class="btn-icon bg-neutral" title="View Ledger"><i class="fa-solid fa-eye"></i></button>
-                            ${bal > 0 ? `<button onclick="nav('fee'); document.getElementById('feeSearch').value=''; document.getElementById('feeTradeFilter').value='All'; document.getElementById('feeYearFilter').value='All'; refreshFeeStudents(); document.getElementById('studentSelect').value='${name}'; autoFillFeeData();" class="btn-icon bg-primary" title="Pay Fee"><i class="fa-solid fa-indian-rupee-sign"></i></button>` : ''}
-                            <button onclick="openEditModal('${name}')" class="btn-icon bg-info" title="Edit Student"><i class="fa-solid fa-pen"></i></button>
-                            <button onclick="deleteStudent('${name}')" class="btn-icon bg-danger" title="Delete Student"><i class="fa-solid fa-trash"></i></button>
+                            <button onclick="viewHistory('${escQ(name)}')" class="btn-icon bg-neutral" title="View Ledger"><i class="fa-solid fa-eye"></i></button>
+                            ${bal > 0 ? `<button onclick="nav('fee'); document.getElementById('feeSearch').value=''; document.getElementById('feeTradeFilter').value='All'; document.getElementById('feeYearFilter').value='All'; refreshFeeStudents(); document.getElementById('studentSelect').value='${escQ(name)}'; autoFillFeeData();" class="btn-icon bg-primary" title="Pay Fee"><i class="fa-solid fa-indian-rupee-sign"></i></button>` : ''}
+                            <button onclick="openEditModal('${escQ(name)}')" class="btn-icon bg-info" title="Edit Student"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteStudent('${escQ(name)}')" class="btn-icon bg-danger" title="Delete Student"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>`;
                 }
@@ -690,9 +692,12 @@
         function updateChart(collected, pending) {
             const ctx = document.getElementById('feeChart');
             if(feeChartInstance) feeChartInstance.destroy();
+            let data = [collected, pending];
+            let labels = ['Collected (₹)', 'Pending (₹)'];
+            if (collected === 0 && pending === 0) { data = [1]; labels = ['No data yet']; }
             feeChartInstance = new Chart(ctx, {
                 type: 'doughnut',
-                data: { labels: ['Collected (₹)', 'Pending (₹)'], datasets: [{ data: [collected, pending], backgroundColor: ['#10b981', '#f43f5e'], hoverOffset: 4 }] },
+                data: { labels: labels, datasets: [{ data: data, backgroundColor: ['#10b981', '#f43f5e', '#e2e8f0'], hoverOffset: 4 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
             });
         }
@@ -713,10 +718,14 @@
 
         function renderExpenses() {
             let html = ""; 
-            expenses.slice().reverse().forEach((e, i) => { 
-                let actualIndex = expenses.length - 1 - i;
-                html += `<tr><td>${e.date}</td><td><span class="badge badge-neutral">${e.category}</span></td><td>${e.desc}</td><td style="color:var(--danger); font-weight:700;">₹${e.amount.toLocaleString('en-IN')}</td><td style="text-align:right;"><button onclick="deleteExpense(${actualIndex})" class="btn-icon bg-danger" title="Delete"><i class="fa-solid fa-trash"></i></button></td></tr>`; 
-            });
+            if (expenses.length === 0) {
+                html = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No expenses recorded yet</td></tr>';
+            } else {
+                expenses.slice().reverse().forEach((e, i) => { 
+                    let actualIndex = expenses.length - 1 - i;
+                    html += `<tr><td>${e.date}</td><td><span class="badge badge-neutral">${e.category}</span></td><td>${e.desc}</td><td style="color:var(--danger); font-weight:700;">₹${e.amount.toLocaleString('en-IN')}</td><td style="text-align:right;"><button onclick="deleteExpense(${actualIndex})" class="btn-icon bg-danger" title="Delete"><i class="fa-solid fa-trash"></i></button></td></tr>`; 
+                });
+            }
             document.getElementById('expenseTableBody').innerHTML = html;
         }
 
@@ -835,10 +844,11 @@
         function viewHistory(name) {
             document.getElementById('historyModal').style.display = 'block';
             let st = db[name];
-            let html = `<div style="background:#f1f5f9; padding:15px; border-radius:10px; margin-bottom:20px;"><p style="margin:0 0 10px 0;"><b>Name:</b> ${name} | <b>Trade:</b> ${st.trade}</p><button onclick="printPastReceipt('${name}')" class="btn-main" style="width:auto;"><i class="fa-solid fa-print"></i> Print Full Ledger (Dual Copy)</button></div><table style="width:100%; text-align:left; border-collapse:collapse;"><tr style="background:#0f172a; color:white;"><th style="padding:10px; border-radius:6px 0 0 0;">Date</th><th style="padding:10px;">Payment Mode</th><th style="padding:10px;">Remark</th><th style="padding:10px;">Paid Amount (₹)</th><th style="padding:10px; border-radius:0 6px 0 0; text-align:right;">Action</th></tr>`;
+            let safeName = escQ(name);
+            let html = `<div style="background:#f1f5f9; padding:15px; border-radius:10px; margin-bottom:20px;"><p style="margin:0 0 10px 0;"><b>Name:</b> ${name} | <b>Trade:</b> ${st.trade}</p><button onclick="printPastReceipt('${safeName}')" class="btn-main" style="width:auto;"><i class="fa-solid fa-print"></i> Print Full Ledger (Dual Copy)</button></div><table style="width:100%; text-align:left; border-collapse:collapse;"><tr style="background:#0f172a; color:white;"><th style="padding:10px; border-radius:6px 0 0 0;">Date</th><th style="padding:10px;">Payment Mode</th><th style="padding:10px;">Remark</th><th style="padding:10px;">Paid Amount (₹)</th><th style="padding:10px; border-radius:0 6px 0 0; text-align:right;">Action</th></tr>`;
             
             st.payments.forEach((p, index) => { 
-                html += `<tr><td style="padding:10px; border-bottom:1px solid #e2e8f0;">${p.date}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:bold;">${p.mode}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:12px; color:gray;">${p.remark || '-'}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:900; font-size:15px; color:var(--primary);">₹${p.amount.toLocaleString('en-IN')}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; text-align:right;"><button onclick="openEditPaymentModal('${name}', ${index})" class="btn-icon bg-warning" title="Edit Fee"><i class="fa-solid fa-pen"></i></button><button onclick="deleteSinglePayment('${name}', ${index})" class="btn-icon bg-danger" title="Delete Fee"><i class="fa-solid fa-trash"></i></button></td></tr>`; 
+                html += `<tr><td style="padding:10px; border-bottom:1px solid #e2e8f0;">${p.date}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:bold;">${p.mode}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:12px; color:gray;">${p.remark || '-'}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:900; font-size:15px; color:var(--primary);">₹${p.amount.toLocaleString('en-IN')}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; text-align:right;"><button onclick="openEditPaymentModal('${safeName}', ${index})" class="btn-icon bg-warning" title="Edit Fee"><i class="fa-solid fa-pen"></i></button><button onclick="deleteSinglePayment('${safeName}', ${index})" class="btn-icon bg-danger" title="Delete Fee"><i class="fa-solid fa-trash"></i></button></td></tr>`; 
             });
             document.getElementById('modalContentData').innerHTML = html + "</table>";
         }
