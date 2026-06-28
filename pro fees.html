@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sunshine ITI - Pro-Max ERP v14</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-body: #f1f5f9; --bg-sidebar: #ffffff; --bg-card: #ffffff;
+            --text-main: #0f172a; --text-muted: #64748b;
+            --border-color: #e2e8f0; --primary: #4f46e5; --primary-hover: #4338ca;
+            --success: #10b981; --danger: #f43f5e; --warning: #f59e0b; --info: #0ea5e9;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
+            --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+        }
+
+        * { box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.3s ease; }
+        body { margin: 0; display: flex; height: 100vh; background-color: var(--bg-body); color: var(--text-main); overflow: hidden; }
+
+        /* LOGIN OVERLAY */
+        #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
+        .login-box { background: var(--bg-card); padding: 40px; border-radius: 24px; text-align: center; width: 90%; max-width: 400px; box-shadow: var(--shadow-lg); }
+        .login-box h2 { margin: 0 0 20px 0; color: var(--text-main); }
+        .pin-input { width: 100%; padding: 15px; font-size: 24px; text-align: center; letter-spacing: 10px; border: 2px solid var(--border-color); border-radius: 12px; margin-bottom: 20px; outline: none; background: var(--bg-body); color: var(--text-main); font-weight: 800; }
+        .pin-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2); }
+
+        /* SIDEBAR */
+        .sidebar { width: 280px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 1000; box-shadow: var(--shadow-sm); }
+        .brand { padding: 30px 24px; text-align: center; border-bottom: 1px solid var(--border-color); position: relative; }
+        .brand-icon { width: 50px; height: 50px; background: linear-gradient(135deg, var(--primary), #818cf8); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; color: white; margin-bottom: 10px; }
+        .brand h2 { margin: 0; font-size: 22px; font-weight: 800; }
+        .brand p { margin: 5px 0 0; font-size: 13px; color: var(--text-muted); font-weight: 500; }
+        .role-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-top: 10px; background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        
+        .menu { padding: 20px 15px; flex: 1; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; }
+        .menu-item { padding: 14px 20px; border-radius: 10px; display: flex; align-items: center; gap: 15px; color: var(--text-muted); cursor: pointer; transition: 0.2s; font-weight: 600; font-size: 15px; }
+        .menu-item:hover { background: var(--bg-body); color: var(--primary); }
+        .menu-item.active { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); }
+        .menu-item i { font-size: 18px; width: 24px; text-align: center; }
+        
+        /* MAIN CONTENT */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; position: relative; }
+        .topbar { background: var(--bg-sidebar); padding: 20px 40px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
+        .topbar h1 { margin: 0; font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 15px; }
+        
+        .content-area { padding: 40px; display: none; animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .content-area.active { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { background: var(--bg-card); border-radius: 20px; padding: 30px; box-shadow: var(--shadow-md); border: 1px solid var(--border-color); margin-bottom: 30px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
+        .card-title { font-size: 18px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 10px; }
+
+        /* Dashboard Layout */
+        .dashboard-top-section { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 30px; }
+        
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+        .stat-box { background: var(--bg-card); padding: 25px; border-radius: 16px; border: 1px solid var(--border-color); position: relative; overflow: hidden; box-shadow: var(--shadow-sm); }
+        .stat-box::before { content:''; position: absolute; top:0; left:0; width:6px; height:100%; }
+        .stat-box.blue::before { background: var(--primary); }
+        .stat-box.green::before { background: var(--success); }
+        .stat-box.cyan::before { background: var(--info); }
+        .stat-box.orange::before { background: var(--warning); }
+        .stat-box.red::before { background: var(--danger); }
+        .stat-box h3 { margin: 0; font-size: 13px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-box h2 { margin: 10px 0 0; font-size: 30px; color: var(--text-main); font-weight: 800; }
+        
+        /* Chart */
+        .chart-container { background: var(--bg-card); border-radius: 20px; padding: 20px; box-shadow: var(--shadow-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; max-height: 350px; }
+        .canvas-wrapper { position: relative; height: 220px; width: 100%; margin-top: 10px; }
+        
+        /* Forms */
+        .table-controls { display: flex; gap: 15px; flex-wrap: wrap; }
+        .search-box { position: relative; flex: 1; min-width: 250px; }
+        .search-box i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .search-box input { padding-left: 45px; width: 100%; border-radius: 12px; }
+        select.filter-dropdown { width: 160px; padding: 12px; border-radius: 12px; border: 2px solid var(--border-color); background: var(--bg-body); font-weight: 600; }
+        
+        input, select { width: 100%; padding: 14px 16px; border: 2px solid var(--border-color); border-radius: 12px; font-size: 15px; font-weight: 500; outline: none; background: var(--bg-body); }
+        input:focus, select:focus { border-color: var(--primary); background: var(--bg-card); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+        
+        button.btn-main { padding: 14px 24px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; color: white; background: var(--primary); transition: 0.3s; }
+        button.btn-main:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4); }
+
+        .btn-icon { padding: 8px 12px; border: none; border-radius: 8px; color: white; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; margin-left: 5px; }
+        .btn-icon:hover { opacity: 0.8; transform: translateY(-2px); }
+        .bg-info { background: var(--info); }
+        .bg-danger { background: var(--danger); }
+        .bg-primary { background: var(--primary); }
+        .bg-neutral { background: #e2e8f0; color: #475569; }
+        .bg-warning { background: var(--warning); color: #fff; }
+        .bg-success { background: var(--success); color: #fff; }
+
+        /* Tables */
+        .table-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border-color); max-height: 500px;}
+        table { width: 100%; border-collapse: collapse; background: var(--bg-card); min-width: 900px; }
+        th, td { padding: 16px 20px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        th { background: rgba(0,0,0,0.03); color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 10;}
+        
+        .badge { padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+        .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .badge-danger { background: rgba(244, 63, 94, 0.1); color: var(--danger); }
+        
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .form-group.full { grid-column: span 2; }
+        label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; }
+
+        /* MODALS */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(15,23,42,0.6); backdrop-filter: blur(5px); }
+        .modal-content { background-color: var(--bg-card); margin: 3% auto; padding: 30px; border-radius: 20px; width: 90%; max-width: 850px; box-shadow: var(--shadow-lg); overflow-y: auto; max-height: 90vh; position: relative; }
+        .close-btn { position: absolute; right: 25px; top: 15px; font-size: 28px; cursor: pointer; color: var(--text-muted); font-weight: bold; }
+        
+        /* DUAL RECEIPT STYLES */
+        .receipt-preview-area { background: var(--bg-body); padding: 40px; border-radius: 16px; display: none; flex-direction: column; align-items: center; gap: 20px; }
+        .receipt-paper { background: white; width: 100%; max-width: 210mm; position: relative; color: #000; box-shadow: var(--shadow-lg); border-radius: 8px; margin: 0 auto; }
+        
+        .r-half { padding: 15px 20px; position: relative; overflow: hidden; }
+        .cut-line { text-align: center; color: #94a3b8; font-size: 14px; letter-spacing: 5px; border-top: 2px dashed #cbd5e1; margin: 0; padding: 5px 0; background: #f8fafc; }
+        .r-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-25deg); font-size: 50px; color: rgba(0,0,0,0.03); font-weight: 900; white-space: nowrap; pointer-events: none; z-index: 0; }
+        
+        @media print {
+            @page { size: A4 portrait; margin: 5mm; }
+            body * { visibility: hidden !important; }
+            body, html { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+            #receiptArea, #receiptArea * { visibility: visible !important; }
+            #receiptArea { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; display: block !important; padding: 0 !important; }
+            .receipt-paper { box-shadow: none !important; border: 1px solid #000 !important; border-radius: 0 !important; width: 100% !important; max-width: 210mm !important; }
+            .r-half { padding: 5mm 10mm !important; }
+            .no-print { display: none !important; }
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-top-section { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: -280px; height: 100%; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-group.full { grid-column: span 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN -->
+    <div id="loginOverlay">
+        <div class="login-box">
+            <div class="brand-icon" style="margin: 0 auto 20px;"><i class="fa-solid fa-lock"></i></div>
+            <h2>Secure ERP Access</h2>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 25px;">Enter PIN (Admin: 1234, Staff: 0000)</p>
+            <input type="password" id="pinInput" class="pin-input" maxlength="4" placeholder="••••">
+            <button class="btn-main" onclick="verifyLogin()">Unlock System</button>
+        </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar no-print" id="appSidebar">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <h2>SUNSHINE ITI</h2>
+            <p>Seoni, Madhya Pradesh</p>
+            <div class="role-badge" id="userRoleBadge">STAFF MODE</div>
+        </div>
+        <div class="menu">
+            <div class="menu-item active" onclick="nav('dashboard')" id="nav-dashboard"><i class="fa-solid fa-chart-pie"></i> Master Dashboard</div>
+            <div class="menu-item" onclick="nav('admission')" id="nav-admission"><i class="fa-solid fa-user-plus"></i> Admissions</div>
+            <div class="menu-item" onclick="nav('fee')" id="nav-fee"><i class="fa-solid fa-file-invoice-dollar"></i> Collect Fee</div>
+            <div class="menu-item admin-only" onclick="nav('expense')" id="nav-expense" style="display:none;"><i class="fa-solid fa-wallet"></i> Expense Book</div>
+            <div class="menu-item admin-only" onclick="nav('audit')" id="nav-audit" style="display:none;"><i class="fa-solid fa-clock-rotate-left"></i> Logs & Bin</div>
+            <div class="menu-item admin-only" onclick="nav('database')" id="nav-database" style="display:none;"><i class="fa-solid fa-cloud-arrow-up"></i> Data Center</div>
+            <button onclick="logout()" style="margin-top:auto; padding: 12px; border-radius: 10px; background: rgba(244, 63, 94, 0.1); color: var(--danger); border: none; font-weight: 700; cursor: pointer;"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <div class="topbar no-print">
+            <h1 id="pageTitle">Analytics Dashboard</h1>
+            <div class="badge badge-neutral" id="currentDate" style="font-size: 14px; padding: 10px 20px; background: white; border: 1px solid var(--border-color);"></div>
+        </div>
+
+        <!-- DASHBOARD AREA -->
+        <div class="content-area active" id="view-dashboard">
+            <div class="dashboard-top-section">
+                <div class="stats-grid">
+                    <div class="stat-box blue"><h3>Total Students</h3><h2 id="stTotal">0</h2></div>
+                    <div class="stat-box green"><h3>Gross Collection</h3><h2 id="stCollected">₹0</h2></div>
+                    <div class="stat-box cyan"><h3>Total Pending</h3><h2 id="stPending">₹0</h2></div>
+                    <div class="stat-box orange admin-only" style="display:none;" id="expenseWidget"><h3>Total Expenses</h3><h2 id="stExpense">₹0</h2></div>
+                    <div class="stat-box red admin-only" style="display:none;" id="profitWidget"><h3>Net Balance (In Hand)</h3><h2 id="stNet">₹0</h2></div>
+                </div>
+                <div class="chart-container">
+                    <h3 style="margin: 0 0 5px 0; font-size: 15px; color: var(--text-muted); text-transform: uppercase;">Financial Overview</h3>
+                    <div class="canvas-wrapper"><canvas id="feeChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="fa-solid fa-list-check"></i> Active Students List</h2>
+                    <div class="table-controls">
+                        <button class="btn-main" onclick="printDashboardTable()" style="width:auto; background:var(--info); padding: 10px 15px;"><i class="fa-solid fa-print"></i> Print List</button>
+                        <div class="search-box"><i class="fa-solid fa-search"></i><input type="text" id="searchInput" placeholder="Search Name/App No..." onkeyup="refreshUI()"></div>
+                        <select id="tradeFilter" class="filter-dropdown" onchange="refreshUI()"><option value="All">All Trades</option></select>
+                        <select id="yearFilter" class="filter-dropdown" onchange="refreshUI()"><option value="All">All Years</option></select>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Father Name</th>
+                                <th>Mobile Number</th>
+                                <th>Fee Status</th>
+                                <th>Paid Amt</th>
+                                <th>Balance</th>
+                                <th class="no-print" style="text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADMISSION AREA -->
+        <div class="content-area" id="view-admission">
+            <div class="card">
+                <div class="card-header"><h2 class="card-title"><i class="fa-solid fa-user-plus"></i> New Student Admission</h2></div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Student Name *</label><input type="text" id="addName" placeholder="Full Name" required></div>
+                    <div class="form-group"><label>Father's Name</label><input type="text" id="addFName" placeholder="Father's Name"></div>
+                    <div class="form-group"><label>Aadhaar Number</label><input type="text" id="addAadhaar" placeholder="12-digit Aadhaar Number"></div>
+                    <div class="form-group"><label>Mobile Number</label><input type="text" id="addMobile" placeholder="10-digit Mobile Number"></div>
+                    <div class="form-group"><label>Samagra ID</label><input type="text" id="addSamagra" placeholder="Samagra ID"></div>
+                    <div class="form-group"><label>Caste</label><select id="addCaste"><option value="GEN">General (GEN)</option><option value="OBC">OBC</option><option value="SC">SC</option><option value="ST">ST</option></select></div>
+                    <div class="form-group"><label>Family Income (₹)</label><input type="number" id="addIncome" placeholder="Yearly Income"></div>
+                    <div class="form-group"><label>House Number / Full Address</label><input type="text" id="addAddress" placeholder="Enter Full Address"></div>
+                    <div class="form-group"><label>Course / Trade</label><input type="text" id="addTrade" placeholder="E.g., Electrician, Fitter"></div>
+                    <div class="form-group"><label>Admission Year</label><input type="text" id="addYear" placeholder="E.g., 2026"></div>
+                    <div class="form-group"><label>App / Roll Number</label><input type="text" id="addAppNo" placeholder="Application Number"></div>
+                    <div class="form-group"><label>Total Course Fee (₹)</label><input type="number" id="addTotalFee" placeholder="Total Fees Amount"></div>
+                    <div class="form-group full"><button class="btn-main" onclick="submitAdmission()"><i class="fa-solid fa-save"></i> Submit Admission Record</button></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FEE COLLECTION AREA -->
+        <div class="content-area" id="view-fee">
+            <div class="card no-print" id="feeEntryForm">
+                <div class="card-header"><h2 class="card-title"><i class="fa-solid fa-money-check-dollar"></i> Process New Payment</h2></div>
+                <div class="form-grid">
+                    
+                    <div class="form-group full">
+                        <label>Filter & Select Student</label>
+                        <div style="display:flex; gap:15px; margin-bottom:10px; flex-wrap: wrap;">
+                            <input type="text" id="feeSearch" placeholder="Search Name..." onkeyup="refreshFeeStudents()" style="flex:1; min-width: 200px; padding: 10px;">
+                            <select id="feeTradeFilter" class="filter-dropdown" onchange="refreshFeeStudents()" style="padding: 10px; width: auto;"><option value="All">All Trades</option></select>
+                            <select id="feeYearFilter" class="filter-dropdown" onchange="refreshFeeStudents()" style="padding: 10px; width: auto;"><option value="All">All Years</option></select>
+                        </div>
+                        <select id="studentSelect" onchange="autoFillFeeData()"><option value="">-- Select Student --</option></select>
+                    </div>
+
+                    <div class="form-group"><label>Course Base Fee</label><input type="number" id="baseFee" readonly style="background: rgba(0,0,0,0.05);"></div>
+                    
+                    <div class="form-group">
+                        <label>
+                            Amount Paying Now (₹) 
+                            <span style="float:right; display:flex; gap:10px; color:var(--primary); font-weight:800; font-size:12px;">
+                                <span style="cursor:pointer;" onclick="setInstallment('1st Installment', 3000)"><i class="fa-solid fa-plus"></i> 1st (3K)</span>
+                                <span style="cursor:pointer;" onclick="setInstallment('2nd Installment', 4000)"><i class="fa-solid fa-plus"></i> 2nd (4K)</span>
+                                <span style="cursor:pointer;" onclick="setInstallment('3rd Installment', 5000)"><i class="fa-solid fa-plus"></i> 3rd (5K)</span>
+                                <span style="cursor:pointer;" onclick="setInstallment('4th Installment', '')"><i class="fa-solid fa-plus"></i> Custom</span>
+                            </span>
+                        </label>
+                        <input type="number" id="paidFee" placeholder="Enter amount..." required>
+                    </div>
+
+                    <div class="form-group"><label>Payment Mode</label><select id="payMode"><option value="Cash">Cash</option><option value="UPI">UPI (PhonePe/Paytm)</option><option value="Bank Transfer">Bank Transfer</option></select></div>
+                    <div class="form-group"><label>Receipt Date</label><input type="date" id="paymentDate" required></div>
+                    <div class="form-group full"><label>Remark (Optional)</label><input type="text" id="payRemark" placeholder="e.g., 1st Installment, Quarterly Fee..."></div>
+                    <div class="form-group full"><button class="btn-main" onclick="generateReceipt()"><i class="fa-solid fa-print"></i> Generate & Save Receipt</button></div>
+                </div>
+            </div>
+
+            <!-- DUAL RECEIPT PREVIEW AREA -->
+            <div class="receipt-preview-area" id="receiptArea">
+                <div class="receipt-action-btns no-print" style="width: 100%; max-width: 210mm; display:flex; gap:10px; justify-content: flex-end; margin-bottom: 10px;">
+                    <button class="btn-main" onclick="nav('dashboard')" style="background:white; color:var(--text-main); border:1px solid #ccc; width:auto;"><i class="fa-solid fa-arrow-left"></i> Dashboard</button>
+                    <button class="btn-main" onclick="window.print()" style="width:auto;"><i class="fa-solid fa-print"></i> Print Dual Receipt (A4)</button>
+                </div>
+                <div class="receipt-paper" id="dualReceiptContainer"></div>
+            </div>
+        </div>
+
+        <!-- EXPENSE BOOK AREA -->
+        <div class="content-area" id="view-expense">
+            <div class="card">
+                <div class="card-header"><h2 class="card-title"><i class="fa-solid fa-wallet"></i> Log New Expense</h2></div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Expense Date</label><input type="date" id="expDate" required></div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="expCategory">
+                            <option value="Marketing">Marketing (Ads/Videos)</option>
+                            <option value="Transport">Transport (Fuel/Toll)</option>
+                            <option value="Maintenance">Maintenance & Parts</option>
+                            <option value="Utility">Utility (Electricity/Water)</option>
+                            <option value="Operations">Operations</option>
+                            <option value="Miscellaneous">Miscellaneous</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Amount (₹)</label><input type="number" id="expAmount" placeholder="Amount spent..."></div>
+                    <div class="form-group"><label>Description</label><input type="text" id="expDesc" placeholder="E.g., Facebook Ads, Printer Parts..."></div>
+                    <div class="form-group full"><button class="btn-main" style="background:var(--danger);" onclick="saveExpense()"><i class="fa-solid fa-plus"></i> Save Expense Record</button></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header"><h2 class="card-title"><i class="fa-solid fa-receipt"></i> Recent Expenses</h2></div>
+                <div class="table-wrapper">
+                    <table style="width: 100%;">
+                        <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th style="text-align:right;">Action</th></tr></thead>
+                        <tbody id="expenseTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- AUDIT LOGS & BIN AREA -->
+        <div class="content-area" id="view-audit">
+            <div class="card" style="border-left: 4px solid var(--danger);">
+                <div class="card-header"><h2 class="card-title"><i class="fa-solid fa-trash-can-arrow-up"></i> Recycle Bin (Deleted Students)</h2></div>
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:15px;">Students deleted will appear here. You can restore them if needed.</p>
+                <div class="table-wrapper" style="max-height: 250px;">
+                    <table>
+                        <thead>
+                            <tr><th>Student Name</th><th>Trade</th><th>App No</th><th>Deleted At</th><th style="text-align:right;">Action</th></tr>
+                        </thead>
+                        <tbody id="binTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header"><h2 class="card-title"><i class="fa-solid fa-list"></i> System Audit Logs</h2></div>
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:15px;">Tracking all major activities within the system.</p>
+                <div class="table-wrapper" style="max-height: 400px;">
+                    <table>
+                        <thead>
+                            <tr><th style="width: 180px;">Date & Time</th><th>Action Taken</th><th>Detailed Log</th></tr>
+                        </thead>
+                        <tbody id="logTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- DATABASE (EXCEL) AREA -->
+        <div class="content-area" id="view-database">
+            <div class="card">
+                <div class="card-header"><h2 class="card-title"><i class="fa-solid fa-server"></i> Database Management</h2></div>
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:20px;">
+                    Excel Upload Instructions: Excel file must have standard columns. Click download template to see the format.
+                </p>
+                <div style="display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap;">
+                    <button class="btn-main" onclick="downloadTemplate()" style="background: var(--info); width:auto;"><i class="fa-solid fa-download"></i> Download Excel Template</button>
+                    
+                    <input type="file" id="excelFile" accept=".xlsx, .xls" style="display:none;" onchange="uploadExcel()">
+                    <button class="btn-main" onclick="document.getElementById('excelFile').click()" style="background: var(--success); width:auto;"><i class="fa-solid fa-upload"></i> Upload Excel Data</button>
+                </div>
+
+                <hr style="border:0; border-top:1px solid var(--border-color); margin-bottom: 20px;">
+                <h4 style="color: var(--danger); margin-top:0;">Danger Zone</h4>
+                <button class="btn-main" style="background: white; color: var(--danger); border: 2px solid var(--danger); width:auto;" onclick="clearData()"><i class="fa-solid fa-trash"></i> Master Reset (Delete All)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✏️ EDIT STUDENT MODAL ✏️ -->
+    <div id="editModal" class="modal no-print">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('editModal').style.display='none'">&times;</span>
+            <h2 style="margin-top:0; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;"><i class="fa-solid fa-pen-to-square"></i> Edit Student Details</h2>
+            
+            <div class="form-grid">
+                <input type="hidden" id="editOriginalName">
+                <div class="form-group"><label>Student Name</label><input type="text" id="editName" required></div>
+                <div class="form-group"><label>Father's Name</label><input type="text" id="editFName"></div>
+                <div class="form-group"><label>App / Roll No</label><input type="text" id="editAppNo"></div>
+                <div class="form-group"><label>Course / Trade</label><input type="text" id="editTrade"></div>
+                <div class="form-group"><label>Total Course Fee (₹)</label><input type="number" id="editTotalFee"></div>
+                <div class="form-group"><label>Admission Year</label><input type="text" id="editAdmYear"></div>
+                <div class="form-group"><label>Mobile</label><input type="text" id="editMobile"></div>
+                <div class="form-group"><label>Aadhaar Number</label><input type="text" id="editAadhaar"></div>
+                <div class="form-group"><label>Samagra ID</label><input type="text" id="editSamagra"></div>
+                <div class="form-group">
+                    <label>Caste</label>
+                    <select id="editCaste">
+                        <option value="GEN">General (GEN)</option>
+                        <option value="OBC">OBC</option>
+                        <option value="SC">SC</option>
+                        <option value="ST">ST</option>
+                    </select>
+                </div>
+                <div class="form-group full"><label>Address</label><input type="text" id="editAddress"></div>
+                <div class="form-group full"><button class="btn-main" onclick="saveEditStudent()"><i class="fa-solid fa-check"></i> Save Changes</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📜 HISTORY MODAL 📜 -->
+    <div id="historyModal" class="modal no-print">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('historyModal').style.display='none'">&times;</span>
+            <h2 style="margin-top:0; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;"><i class="fa-solid fa-user"></i> Student Ledger History</h2>
+            <div id="modalContentData"></div>
+        </div>
+    </div>
+
+    <!-- ✏️ EDIT PAST PAYMENT MODAL ✏️ -->
+    <div id="editPaymentModal" class="modal no-print" style="z-index: 1001;">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-btn" onclick="document.getElementById('editPaymentModal').style.display='none'">&times;</span>
+            <h2 style="margin-top:0; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;"><i class="fa-solid fa-pen"></i> Edit Past Fee Payment</h2>
+            
+            <div class="form-grid" style="grid-template-columns: 1fr;">
+                <input type="hidden" id="epName">
+                <input type="hidden" id="epIndex">
+                <div class="form-group"><label>Receipt Date (DD/MM/YYYY)</label><input type="text" id="epDate" required></div>
+                <div class="form-group"><label>Paid Amount (₹)</label><input type="number" id="epAmount" required></div>
+                <div class="form-group">
+                    <label>Payment Mode</label>
+                    <select id="epMode">
+                        <option value="Cash">Cash</option>
+                        <option value="UPI">UPI (PhonePe/Paytm)</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Remark</label><input type="text" id="epRemark"></div>
+                <div class="form-group"><button class="btn-main" onclick="savePaymentEdit()"><i class="fa-solid fa-check"></i> Update Paid Fee</button></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Database Initialization
+        let db = JSON.parse(localStorage.getItem('iti_db_v14')) || {};
+        let expenses = JSON.parse(localStorage.getItem('iti_exp_v14')) || [];
+        let logs = JSON.parse(localStorage.getItem('iti_logs_v14')) || [];
+        let bin = JSON.parse(localStorage.getItem('iti_bin_v14')) || {};
+        
+        let currentUserRole = null;
+        let feeChartInstance = null;
+
+        window.onload = function() {
+            document.getElementById('currentDate').innerText = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('paymentDate').valueAsDate = new Date();
+            document.getElementById('expDate').valueAsDate = new Date();
+            document.getElementById('addYear').value = new Date().getFullYear();
+            populateFilters();
+        }
+        
+        // --- AUDIT LOG HELPER ---
+        function addLog(action, details) {
+            let now = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second:'2-digit' });
+            logs.unshift({ date: now, action: action, details: details });
+            if (logs.length > 500) logs.pop(); // Keep only last 500 logs to save storage
+            localStorage.setItem('iti_logs_v14', JSON.stringify(logs));
+            if(document.getElementById('view-audit').classList.contains('active')) renderAudit();
+        }
+
+        function renderAudit() {
+            // Render Logs
+            let logHtml = "";
+            logs.forEach(l => {
+                logHtml += `<tr>
+                    <td style="font-size:12px; color:var(--text-muted);">${l.date}</td>
+                    <td><b>${l.action}</b></td>
+                    <td style="font-size:13px;">${l.details}</td>
+                </tr>`;
+            });
+            document.getElementById('logTableBody').innerHTML = logHtml || '<tr><td colspan="3" style="text-align:center;">No logs available</td></tr>';
+
+            // Render Bin
+            let binHtml = "";
+            Object.keys(bin).forEach(name => {
+                let st = bin[name];
+                binHtml += `<tr>
+                    <td><b>${name}</b></td>
+                    <td>${st.trade}</td>
+                    <td>${st.appNo || 'N/A'}</td>
+                    <td style="font-size:12px;">${st.deletedAt || '-'}</td>
+                    <td style="text-align:right;">
+                        <button onclick="restoreStudent('${name}')" class="btn-icon bg-success" title="Restore Record" style="padding: 6px 12px; font-weight:bold;"><i class="fa-solid fa-trash-can-arrow-up"></i> Restore</button>
+                    </td>
+                </tr>`;
+            });
+            document.getElementById('binTableBody').innerHTML = binHtml || '<tr><td colspan="5" style="text-align:center;">Recycle bin is empty</td></tr>';
+        }
+
+        function restoreStudent(name) {
+            if(confirm(`Are you sure you want to restore student "${name}"?`)) {
+                db[name] = bin[name];
+                delete db[name].deletedAt;
+                delete bin[name];
+                localStorage.setItem('iti_db_v14', JSON.stringify(db));
+                localStorage.setItem('iti_bin_v14', JSON.stringify(bin));
+                addLog("Restore Student", `Student "${name}" restored from recycle bin.`);
+                populateFilters(); refreshUI(); renderAudit();
+                alert(`${name} has been successfully restored!`);
+            }
+        }
+
+        function verifyLogin() {
+            const pin = document.getElementById('pinInput').value;
+            if (pin === '1234') { 
+                currentUserRole = 'admin'; 
+                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block'); 
+                document.getElementById('expenseWidget').style.display = 'block'; 
+                document.getElementById('profitWidget').style.display = 'block'; 
+                unlockSystem(); 
+            } 
+            else if (pin === '0000') { 
+                currentUserRole = 'staff'; 
+                unlockSystem(); 
+            } 
+            else { alert("Invalid PIN!"); }
+        }
+
+        function unlockSystem() {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('pinInput').value = '';
+            populateFilters(); refreshUI(); renderExpenses(); renderAudit();
+            addLog("System Login", `Logged in as ${currentUserRole.toUpperCase()}`);
+        }
+
+        function logout() { 
+            addLog("System Logout", `User logged out`);
+            currentUserRole = null; 
+            document.getElementById('loginOverlay').style.display = 'flex'; 
+            nav('dashboard'); 
+        }
+
+        function nav(page) {
+            document.querySelectorAll('.content-area').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${page}`).classList.add('active');
+            document.getElementById(`nav-${page}`).classList.add('active');
+            if(page !== 'fee') { document.getElementById('receiptArea').style.display = 'none'; document.getElementById('feeEntryForm').style.display = 'block'; }
+            if(page === 'audit') { renderAudit(); }
+        }
+
+        function submitAdmission() {
+            let name = document.getElementById('addName').value.trim().toUpperCase();
+            if(!name) return alert("Student Name is required!");
+            if(db[name]) return alert("Student with this exact name already exists!");
+            
+            let totalFee = parseFloat(document.getElementById('addTotalFee').value) || 0;
+            let trade = document.getElementById('addTrade').value || "General";
+            
+            db[name] = {
+                appNo: document.getElementById('addAppNo').value || "N/A", 
+                trade: trade,
+                admYear: document.getElementById('addYear').value || new Date().getFullYear(), 
+                totalFee: totalFee,
+                fName: document.getElementById('addFName').value || "", 
+                aadhaar: document.getElementById('addAadhaar').value || "",
+                mobile: document.getElementById('addMobile').value || "", 
+                samagra: document.getElementById('addSamagra').value || "",
+                caste: document.getElementById('addCaste').value || "GEN", 
+                income: document.getElementById('addIncome').value || "",
+                address: document.getElementById('addAddress').value || "", 
+                payments: []
+            };
+            
+            localStorage.setItem('iti_db_v14', JSON.stringify(db)); 
+            addLog("New Admission", `Admitted "${name}" in ${trade} (Fee: ₹${totalFee})`);
+            
+            alert("Saved Successfully!");
+            document.querySelectorAll('#view-admission input').forEach(input => input.value = ''); 
+            nav('dashboard'); refreshUI(); populateFilters();
+        }
+
+        function populateFilters() {
+            const years = new Set(), trades = new Set();
+            Object.values(db).forEach(st => { if(st.admYear) years.add(st.admYear); if(st.trade) trades.add(st.trade); });
+            
+            const ys = document.getElementById('yearFilter'), ts = document.getElementById('tradeFilter');
+            const fys = document.getElementById('feeYearFilter'), fts = document.getElementById('feeTradeFilter');
+            
+            ys.innerHTML = '<option value="All">All Years</option>'; ts.innerHTML = '<option value="All">All Trades</option>';
+            fys.innerHTML = '<option value="All">All Years</option>'; fts.innerHTML = '<option value="All">All Trades</option>';
+            
+            Array.from(years).sort().forEach(y => {
+                ys.innerHTML += `<option value="${y}">${y}</option>`; fys.innerHTML += `<option value="${y}">${y}</option>`;
+            });
+            Array.from(trades).sort().forEach(t => {
+                ts.innerHTML += `<option value="${t}">${t}</option>`; fts.innerHTML += `<option value="${t}">${t}</option>`;
+            });
+        }
+
+        function refreshUI() {
+            let tStudents = 0, tCol = 0, tPending = 0, tableHTML = "";
+            const query = document.getElementById('searchInput').value.toLowerCase(), sYear = document.getElementById('yearFilter').value, sTrade = document.getElementById('tradeFilter').value;
+
+            Object.keys(db).sort().forEach(name => {
+                let st = db[name];
+                
+                if (sYear !== "All" && String(st.admYear) !== sYear) return;
+                if (sTrade !== "All" && st.trade !== sTrade) return;
+
+                if(name.toLowerCase().includes(query) || String(st.appNo).toLowerCase().includes(query)) {
+                    let paid = st.payments.reduce((sum, p) => sum + p.amount, 0), bal = st.totalFee - paid;
+                    tStudents++; tCol += paid; tPending += bal;
+                    
+                    let badge = bal <= 0 ? `<span class="badge badge-success">Cleared</span>` : (paid > 0 ? `<span class="badge badge-warning">Partial</span>` : `<span class="badge badge-danger">Unpaid</span>`);
+                    
+                    tableHTML += `<tr>
+                        <td><div style="font-weight:bold;">${name}</div><div style="font-size:12px; color:gray;">${st.trade}</div></td>
+                        <td>${st.fName || '-'}</td>
+                        <td>${st.mobile || '-'}</td>
+                        <td>${badge}</td>
+                        <td style="font-weight:600;">₹${paid}</td>
+                        <td style="color:${bal>0?'var(--danger)':'var(--success)'}; font-weight:800;">₹${bal}</td>
+                        <td class="no-print" style="text-align:right; white-space: nowrap;">
+                            <button onclick="viewHistory('${name}')" class="btn-icon bg-neutral" title="View Ledger"><i class="fa-solid fa-eye"></i></button>
+                            ${bal > 0 ? `<button onclick="nav('fee'); document.getElementById('feeSearch').value=''; document.getElementById('feeTradeFilter').value='All'; document.getElementById('feeYearFilter').value='All'; refreshFeeStudents(); document.getElementById('studentSelect').value='${name}'; autoFillFeeData();" class="btn-icon bg-primary" title="Pay Fee"><i class="fa-solid fa-indian-rupee-sign"></i></button>` : ''}
+                            <button onclick="openEditModal('${name}')" class="btn-icon bg-info" title="Edit Student"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteStudent('${name}')" class="btn-icon bg-danger" title="Delete Student"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+                }
+            });
+
+            document.getElementById('dataTableBody').innerHTML = tableHTML;
+            document.getElementById('stTotal').innerText = tStudents; document.getElementById('stCollected').innerText = "₹" + tCol.toLocaleString('en-IN'); document.getElementById('stPending').innerText = "₹" + tPending.toLocaleString('en-IN');
+            
+            if(currentUserRole === 'admin') {
+                let tExp = expenses.reduce((sum, e) => sum + e.amount, 0);
+                document.getElementById('stExpense').innerText = "₹" + tExp.toLocaleString('en-IN');
+                document.getElementById('stNet').innerText = "₹" + (tCol - tExp).toLocaleString('en-IN');
+            }
+            
+            updateChart(tCol, tPending);
+            refreshFeeStudents(); 
+        }
+
+        function refreshFeeStudents() {
+            let selectHTML = '<option value="">-- Select Student --</option>';
+            const query = document.getElementById('feeSearch').value.toLowerCase();
+            const sYear = document.getElementById('feeYearFilter').value;
+            const sTrade = document.getElementById('feeTradeFilter').value;
+
+            Object.keys(db).sort().forEach(name => {
+                let st = db[name];
+                if (sYear !== "All" && String(st.admYear) !== sYear) return;
+                if (sTrade !== "All" && st.trade !== sTrade) return;
+
+                if(name.toLowerCase().includes(query) || String(st.appNo).toLowerCase().includes(query)) {
+                    let paid = st.payments.reduce((sum, p) => sum + p.amount, 0), bal = st.totalFee - paid;
+                    selectHTML += `<option value="${name}">${name} (${st.trade}) - Bal: ₹${bal}</option>`;
+                }
+            });
+            document.getElementById('studentSelect').innerHTML = selectHTML;
+        }
+
+        function printDashboardTable() {
+            let printWindow = window.open('', '_blank');
+            let tableHTML = document.querySelector('.table-wrapper').innerHTML;
+            let currentFilter = `Year Filter: ${document.getElementById('yearFilter').value} | Trade Filter: ${document.getElementById('tradeFilter').value}`;
+            addLog("Print List", "Printed Active Students List");
+            
+            printWindow.document.write(`
+                <html><head><title>Student List - Sunshine ITI</title>
+                <style>body { font-family: sans-serif; padding: 20px; color: #333; } h2, p { text-align: center; } table { width: 100%; border-collapse: collapse; font-size: 13px; } th, td { border: 1px solid #ccc; padding: 10px; text-align: left; } th { background-color: #f1f5f9; } .no-print { display: none !important; }</style></head>
+                <body><h2>SUNSHINE PRIVATE ITI</h2><p>Active Students Master List</p><p style="font-weight:bold;">${currentFilter}</p>${tableHTML}</body></html>
+            `);
+            printWindow.document.close(); printWindow.focus();
+            setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+        }
+
+        function updateChart(collected, pending) {
+            const ctx = document.getElementById('feeChart');
+            if(feeChartInstance) feeChartInstance.destroy();
+            feeChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: ['Collected (₹)', 'Pending (₹)'], datasets: [{ data: [collected, pending], backgroundColor: ['#10b981', '#f43f5e'], hoverOffset: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+
+        /* 💸 EXPENSE LOGIC 💸 */
+        function saveExpense() {
+            let dt = document.getElementById('expDate').value, cat = document.getElementById('expCategory').value, amt = parseFloat(document.getElementById('expAmount').value), desc = document.getElementById('expDesc').value;
+            if(!dt || isNaN(amt) || !desc) return alert("Fill all expense details!");
+            
+            expenses.push({ date: new Date(dt).toLocaleDateString('en-IN'), category: cat, amount: amt, desc: desc });
+            localStorage.setItem('iti_exp_v14', JSON.stringify(expenses));
+            
+            addLog("Add Expense", `₹${amt} logged for ${cat} (${desc})`);
+            
+            document.getElementById('expAmount').value = ""; document.getElementById('expDesc').value = ""; 
+            alert("Expense Recorded Successfully!"); renderExpenses(); refreshUI();
+        }
+
+        function renderExpenses() {
+            let html = ""; 
+            expenses.slice().reverse().forEach((e, i) => { 
+                let actualIndex = expenses.length - 1 - i;
+                html += `<tr><td>${e.date}</td><td><span class="badge badge-neutral">${e.category}</span></td><td>${e.desc}</td><td style="color:var(--danger); font-weight:700;">₹${e.amount.toLocaleString('en-IN')}</td><td style="text-align:right;"><button onclick="deleteExpense(${actualIndex})" class="btn-icon bg-danger" title="Delete"><i class="fa-solid fa-trash"></i></button></td></tr>`; 
+            });
+            document.getElementById('expenseTableBody').innerHTML = html;
+        }
+
+        function deleteExpense(index) {
+            if(confirm("Are you sure you want to delete this expense record?")) {
+                let e = expenses[index];
+                addLog("Delete Expense", `Removed expense: ₹${e.amount} for ${e.category}`);
+                expenses.splice(index, 1);
+                localStorage.setItem('iti_exp_v14', JSON.stringify(expenses));
+                renderExpenses(); refreshUI();
+            }
+        }
+
+        /* ✏️ EDIT STUDENT LOGIC ✏️ */
+        function openEditModal(name) {
+            let st = db[name];
+            document.getElementById('editOriginalName').value = name;
+            document.getElementById('editName').value = name;
+            document.getElementById('editFName').value = st.fName || '';
+            document.getElementById('editAppNo').value = st.appNo || '';
+            document.getElementById('editTrade').value = st.trade || '';
+            document.getElementById('editTotalFee').value = st.totalFee || 0;
+            document.getElementById('editAdmYear').value = st.admYear || '';
+            document.getElementById('editMobile').value = st.mobile || '';
+            document.getElementById('editAadhaar').value = st.aadhaar || '';
+            document.getElementById('editSamagra').value = st.samagra || '';
+            document.getElementById('editCaste').value = st.caste || 'GEN';
+            document.getElementById('editAddress').value = st.address || '';
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function saveEditStudent() {
+            let oldName = document.getElementById('editOriginalName').value;
+            let newName = document.getElementById('editName').value.trim().toUpperCase();
+            if(!newName) return alert("Name is required!");
+
+            let st = db[oldName];
+            st.fName = document.getElementById('editFName').value;
+            st.appNo = document.getElementById('editAppNo').value;
+            st.trade = document.getElementById('editTrade').value;
+            st.totalFee = parseFloat(document.getElementById('editTotalFee').value) || 0;
+            st.admYear = document.getElementById('editAdmYear').value;
+            st.mobile = document.getElementById('editMobile').value;
+            st.aadhaar = document.getElementById('editAadhaar').value;
+            st.samagra = document.getElementById('editSamagra').value;
+            st.caste = document.getElementById('editCaste').value;
+            st.address = document.getElementById('editAddress').value;
+
+            if(newName !== oldName) { db[newName] = st; delete db[oldName]; } else { db[oldName] = st; }
+
+            localStorage.setItem('iti_db_v14', JSON.stringify(db)); 
+            addLog("Edit Student", `Updated details for student "${newName}"`);
+            alert("Student Details Updated Successfully!");
+            document.getElementById('editModal').style.display = 'none'; populateFilters(); refreshUI();
+        }
+
+        /* 🗑️ DELETE (TO BIN) STUDENT LOGIC 🗑️ */
+        function deleteStudent(name) {
+            if(confirm(`Are you sure you want to move "${name}" to the Recycle Bin? Their data will no longer show in reports.`)) {
+                
+                bin[name] = db[name];
+                bin[name].deletedAt = new Date().toLocaleString('en-IN');
+                
+                delete db[name];
+                localStorage.setItem('iti_db_v14', JSON.stringify(db));
+                localStorage.setItem('iti_bin_v14', JSON.stringify(bin));
+                
+                addLog("Delete Student", `Moved student "${name}" to Recycle Bin.`);
+                alert(`${name} has been moved to Recycle Bin.`);
+                populateFilters(); refreshUI(); renderAudit();
+            }
+        }
+
+        function autoFillFeeData() {
+            let name = document.getElementById('studentSelect').value;
+            if(name) { document.getElementById('baseFee').value = db[name].totalFee; } else { document.getElementById('baseFee').value = ""; }
+        }
+
+        function setInstallment(instName, amount) {
+            let base = parseFloat(document.getElementById('baseFee').value);
+            if(base) {
+                if(amount !== '') { document.getElementById('paidFee').value = amount; } else { document.getElementById('paidFee').value = ""; document.getElementById('paidFee').focus(); }
+                document.getElementById('payRemark').value = instName;
+            } else { alert("Please select a student first!"); }
+        }
+
+        function buildReceiptUI(name, currentAmt = 0, currentMode = "", currentRemark = "") {
+            let st = db[name]; let receiptNo = "SUN-" + Date.now().toString().slice(-5); let rDate = new Date().toLocaleDateString('en-IN');
+            let tPaid = 0; let historyHTML = "";
+            [...st.payments].forEach(p => {
+                tPaid += p.amount; let currentBal = st.totalFee - tPaid;
+                historyHTML += `<tr><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0;">${p.date}</td><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0; font-weight:600;">${p.mode}</td><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0; font-weight:900; font-size:12px; text-align:right;">₹${p.amount.toLocaleString('en-IN')}</td><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0; text-align:right; color:#64748b;">₹${currentBal.toLocaleString('en-IN')}</td></tr>`;
+            });
+            let bal = st.totalFee - tPaid;
+
+            function generateReceiptHalf(copyType) {
+                return `<div class="r-half"><div class="r-watermark">SUNSHINE ITI</div><div style="position:relative; z-index:2;"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 8px;"><div><h2 style="margin:0; font-size:18px; font-weight:900; letter-spacing:0.5px;">SUNSHINE PRIVATE ITI</h2><p style="margin:2px 0 0; font-size:11px; color:#475569;">Recognized by NCVT | Seoni, M.P. - 480661</p></div><div style="text-align:right; font-weight:bold; font-size:12px; border:2px solid #0f172a; padding:4px 8px; border-radius:6px; background:#f8fafc;">${copyType}</div></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom: 8px;"><div><b>Receipt No:</b> ${receiptNo}</div><div><b>Date:</b> ${rDate}</div></div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; background:#f8fafc; padding:8px; border:1px solid #cbd5e1; border-radius:8px; margin-bottom: 8px; font-size:11px;"><div><span style="color:gray;">Student Name:</span><br><b style="font-size:13px;">${name}</b></div><div><span style="color:gray;">Father's Name:</span><br><b>${st.fName || '-'}</b></div><div><span style="color:gray;">Course/Trade:</span><br><b>${st.trade}</b></div><div><span style="color:gray;">App No:</span><br><b>${st.appNo}</b></div></div>${currentAmt > 0 ? `<div style="background:#e0f2fe; padding:8px; border-radius:8px; border-left:4px solid var(--info); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:11px; color:#0369a1; text-transform:uppercase; font-weight:700;">Amount Received</div><div style="font-size:11px; color:#0284c7; margin-top:2px;">Mode: <b>${currentMode}</b> | Remark: ${currentRemark}</div></div><div style="font-size:22px; font-weight:900; color:#0284c7;">₹${currentAmt.toLocaleString('en-IN')}</div></div>` : ''}<h4 style="margin:0 0 5px 0; font-size:11px; color:#475569; text-transform:uppercase;">Payment History</h4><table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:8px;"><tr style="background:#0f172a; color:white;"><th style="padding:4px 8px; text-align:left; border-radius:6px 0 0 0;">Date</th><th style="padding:4px 8px; text-align:left;">Mode</th><th style="padding:4px 8px; text-align:right;">Paid Amount (₹)</th><th style="padding:4px 8px; text-align:right; border-radius:0 6px 0 0;">Bal (₹)</th></tr>${historyHTML}</table><div style="display:flex; justify-content:space-between; font-size:12px; background:#f1f5f9; padding:8px; border-radius:8px; border:1px solid #e2e8f0;"><div><span style="color:gray;">Total Fee:</span><br><b style="font-size:13px;">₹${st.totalFee.toLocaleString('en-IN')}</b></div><div style="color:var(--success);"><span style="color:gray;">Total Paid:</span><br><b style="font-size:13px;">₹${tPaid.toLocaleString('en-IN')}</b></div><div style="color:var(--danger);"><span style="color:gray;">Balance:</span><br><b style="font-size:13px;">₹${bal.toLocaleString('en-IN')}</b></div></div><div style="display:flex; justify-content:space-between; margin-top: 20px; font-size:11px; font-weight:bold;"><div style="border-top:1px solid #000; width:120px; text-align:center; padding-top:4px;">Student Sign</div><div style="border-top:1px solid #000; width:150px; text-align:center; padding-top:4px;">Authorized Signatory</div></div></div></div>`;
+            }
+
+            document.getElementById('dualReceiptContainer').innerHTML = generateReceiptHalf("OFFICE COPY") + `<div class="cut-line">✂--------------------------------------------------✂</div>` + generateReceiptHalf("STUDENT COPY");
+            document.getElementById('feeEntryForm').style.display = 'none'; document.getElementById('receiptArea').style.display = 'flex';
+        }
+
+        function generateReceipt() {
+            let name = document.getElementById('studentSelect').value, amt = parseFloat(document.getElementById('paidFee').value), mode = document.getElementById('payMode').value, dt = document.getElementById('paymentDate').value, remark = document.getElementById('payRemark').value || '-';
+            if(!name || isNaN(amt) || amt <= 0) return alert("Fill valid details!");
+            
+            db[name].payments.push({ date: new Date(dt).toLocaleDateString('en-IN'), amount: amt, mode: mode, remark: remark });
+            localStorage.setItem('iti_db_v14', JSON.stringify(db));
+            addLog("Collect Fee", `₹${amt} collected from "${name}" via ${mode}`);
+            
+            buildReceiptUI(name, amt, mode, remark);
+            document.getElementById('paidFee').value = ""; refreshUI();
+        }
+
+        function viewHistory(name) {
+            document.getElementById('historyModal').style.display = 'block';
+            let st = db[name];
+            let html = `<div style="background:#f1f5f9; padding:15px; border-radius:10px; margin-bottom:20px;"><p style="margin:0 0 10px 0;"><b>Name:</b> ${name} | <b>Trade:</b> ${st.trade}</p><button onclick="printPastReceipt('${name}')" class="btn-main" style="width:auto;"><i class="fa-solid fa-print"></i> Print Full Ledger (Dual Copy)</button></div><table style="width:100%; text-align:left; border-collapse:collapse;"><tr style="background:#0f172a; color:white;"><th style="padding:10px; border-radius:6px 0 0 0;">Date</th><th style="padding:10px;">Payment Mode</th><th style="padding:10px;">Remark</th><th style="padding:10px;">Paid Amount (₹)</th><th style="padding:10px; border-radius:0 6px 0 0; text-align:right;">Action</th></tr>`;
+            
+            st.payments.forEach((p, index) => { 
+                html += `<tr><td style="padding:10px; border-bottom:1px solid #e2e8f0;">${p.date}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:bold;">${p.mode}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:12px; color:gray;">${p.remark || '-'}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:900; font-size:15px; color:var(--primary);">₹${p.amount.toLocaleString('en-IN')}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; text-align:right;"><button onclick="openEditPaymentModal('${name}', ${index})" class="btn-icon bg-warning" title="Edit Fee"><i class="fa-solid fa-pen"></i></button><button onclick="deleteSinglePayment('${name}', ${index})" class="btn-icon bg-danger" title="Delete Fee"><i class="fa-solid fa-trash"></i></button></td></tr>`; 
+            });
+            document.getElementById('modalContentData').innerHTML = html + "</table>";
+        }
+
+        function openEditPaymentModal(name, index) {
+            let p = db[name].payments[index];
+            document.getElementById('epName').value = name;
+            document.getElementById('epIndex').value = index;
+            document.getElementById('epDate').value = p.date;
+            document.getElementById('epAmount').value = p.amount;
+            document.getElementById('epMode').value = p.mode;
+            document.getElementById('epRemark').value = p.remark || '';
+            document.getElementById('editPaymentModal').style.display = 'block';
+        }
+
+        function savePaymentEdit() {
+            let name = document.getElementById('epName').value; let index = parseInt(document.getElementById('epIndex').value);
+            let p = db[name].payments[index];
+            
+            let oldAmt = p.amount;
+            p.date = document.getElementById('epDate').value;
+            p.amount = parseFloat(document.getElementById('epAmount').value) || 0;
+            p.mode = document.getElementById('epMode').value;
+            p.remark = document.getElementById('epRemark').value;
+            
+            localStorage.setItem('iti_db_v14', JSON.stringify(db));
+            addLog("Edit Payment", `Edited payment for "${name}" (Amount: ₹${oldAmt} -> ₹${p.amount})`);
+            
+            alert("Fee Record Updated Successfully!"); document.getElementById('editPaymentModal').style.display = 'none'; refreshUI(); viewHistory(name);
+        }
+
+        function deleteSinglePayment(name, index) {
+            if(confirm("Are you sure you want to permanently delete this specific fee payment?")) {
+                let deletedAmt = db[name].payments[index].amount;
+                db[name].payments.splice(index, 1);
+                localStorage.setItem('iti_db_v14', JSON.stringify(db));
+                addLog("Delete Payment", `Deleted ₹${deletedAmt} payment record of "${name}"`);
+                refreshUI(); viewHistory(name); 
+            }
+        }
+
+        function printPastReceipt(name) { document.getElementById('historyModal').style.display = 'none'; nav('fee'); buildReceiptUI(name, 0, "", ""); }
+
+        /* ⬇️ DOWNLOAD TEMPLATE LOGIC ⬇️ */
+        function downloadTemplate() {
+            const ws_data = [ ["Student Name", "Father Name", "Aadhaar Number", "Mobile Number", "Samagra ID", "Caste", "Family Income", "Address", "Course/Trade", "Admission Year", "App No", "Total Course Fee"], ["Rahul Kumar", "Ramesh Kumar", "1234XXXXXXXX", "9876543210", "987654321", "OBC", "50000", "Seoni, MP", "Electrician", "2026", "APP1001", "25000"] ];
+            const ws = XLSX.utils.aoa_to_sheet(ws_data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Student Data Template"); XLSX.writeFile(wb, "Sunshine_ITI_Upload_Template.xlsx");
+        }
+
+        /* ⬆️ UPLOAD EXCEL LOGIC ⬆️ */
+        function uploadExcel() {
+            const file = document.getElementById('excelFile').files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result), workbook = XLSX.read(data, {type: 'array'}), jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                let count = 0;
+                jsonData.forEach(row => {
+                    let stName = row["Student Name"] || row["Name"];
+                    let totalF = parseFloat(row["Total Course Fee"] || row["Total Fee"]) || 0;
+                    if (stName && totalF) {
+                        let nameKey = String(stName).trim().toUpperCase();
+                        if (!db[nameKey]) {
+                            db[nameKey] = { appNo: row["App No"] || row["Application Number"] || "N/A", trade: row["Course/Trade"] || row["Trade"] || "General", admYear: row["Admission Year"] || row["Year"] || new Date().getFullYear(), totalFee: totalF, fName: row["Father Name"] || row["Father's Name"] || "", aadhaar: row["Aadhaar Number"] || "", mobile: row["Mobile Number"] || "", samagra: row["Samagra ID"] || "", caste: row["Caste"] || "GEN", income: row["Family Income"] || row["Income"] || "", address: row["Address"] || "", payments: [] };
+                            count++;
+                        }
+                    }
+                });
+                localStorage.setItem('iti_db_v14', JSON.stringify(db)); 
+                addLog("Excel Upload", `Imported ${count} new student records via Excel.`);
+                populateFilters(); refreshUI(); alert(`${count} Students Successfully Imported.`); document.getElementById('excelFile').value = ''; 
+            }; reader.readAsArrayBuffer(file);
+        }
+
+        function clearData() { 
+            if(confirm("🚨 WARNING: DELETE ALL DATA? This will wipe the entire system.")) { 
+                db = {}; bin = {}; logs = []; expenses = [];
+                localStorage.removeItem('iti_db_v14'); 
+                localStorage.removeItem('iti_exp_v14'); 
+                localStorage.removeItem('iti_bin_v14'); 
+                localStorage.removeItem('iti_logs_v14'); 
+                addLog("Master Reset", "Entire Database Wiped.");
+                refreshUI(); renderAudit(); alert("Erased Successfully."); 
+            } 
+        }
+    </script>
+</body>
+</html>
