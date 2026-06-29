@@ -154,7 +154,8 @@
             <div class="brand-icon" style="margin: 0 auto 20px;"><i class="fa-solid fa-lock"></i></div>
             <h2>Secure ERP Access</h2>
             <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 25px;">Enter PIN (Admin: 1234, Staff: 0000)</p>
-            <input type="password" id="pinInput" class="pin-input" maxlength="4" placeholder="••••">
+            <input type="text" id="usernameInput" class="pin-input" maxlength="20" placeholder="Username" value="admin" style="margin-bottom:10px; letter-spacing:normal; font-size:16px; text-align:center;">
+            <input type="password" id="pinInput" class="pin-input" maxlength="4" placeholder="••••" onkeypress="if(event.key==='Enter')verifyLogin()">
             <button class="btn-main" onclick="verifyLogin()">Unlock System</button>
         </div>
     </div>
@@ -451,36 +452,50 @@
     </div>
 
     <script>
-        // Database Initialization
-        let db = JSON.parse(localStorage.getItem('iti_db_v14')) || {};
-        let expenses = JSON.parse(localStorage.getItem('iti_exp_v14')) || [];
+        // Backend API config
+        const API_BASE = localStorage.getItem('api_base') || 'http://localhost:8080';
+        let TOKEN = localStorage.getItem('iti_token') || null;
+
+        // Local cache & state
+        let db = {};
+        let expenses = [];
         let logs = JSON.parse(localStorage.getItem('iti_logs_v14')) || [];
         let bin = JSON.parse(localStorage.getItem('iti_bin_v14')) || {};
-        
+        let studentList = [];
         let currentUserRole = null;
         let feeChartInstance = null;
 
         function escQ(s) { return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+        async function api(path, opts = {}) {
+            const res = await fetch(API_BASE + path, {
+                headers: { 'Content-Type': 'application/json', ...(TOKEN ? { 'Authorization': 'Bearer ' + TOKEN } : {}), ...opts.headers },
+                ...opts
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: res.statusText }));
+                throw new Error(err.error || 'Request failed');
+            }
+            return res.status === 204 ? null : res.json();
+        }
 
         window.onload = function() {
             document.getElementById('currentDate').innerText = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
             document.getElementById('paymentDate').valueAsDate = new Date();
             document.getElementById('expDate').valueAsDate = new Date();
             document.getElementById('addYear').value = new Date().getFullYear();
-            populateFilters();
         }
-        
+
         // --- AUDIT LOG HELPER ---
         function addLog(action, details) {
             let now = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second:'2-digit' });
             logs.unshift({ date: now, action: action, details: details });
-            if (logs.length > 500) logs.pop(); // Keep only last 500 logs to save storage
+            if (logs.length > 500) logs.pop();
             localStorage.setItem('iti_logs_v14', JSON.stringify(logs));
             if(document.getElementById('view-audit').classList.contains('active')) renderAudit();
         }
 
         function renderAudit() {
-            // Render Logs
             let logHtml = "";
             logs.forEach(l => {
                 logHtml += `<tr>
@@ -491,7 +506,6 @@
             });
             document.getElementById('logTableBody').innerHTML = logHtml || '<tr><td colspan="3" style="text-align:center;">No logs available</td></tr>';
 
-            // Render Bin
             let binHtml = "";
             Object.keys(bin).forEach(name => {
                 let st = bin[name];
@@ -513,42 +527,59 @@
                 db[name] = bin[name];
                 delete db[name].deletedAt;
                 delete bin[name];
-                localStorage.setItem('iti_db_v14', JSON.stringify(db));
-                localStorage.setItem('iti_bin_v14', JSON.stringify(bin));
                 addLog("Restore Student", `Student "${name}" restored from recycle bin.`);
                 populateFilters(); refreshUI(); renderAudit();
                 alert(`${name} has been successfully restored!`);
             }
         }
 
-        function verifyLogin() {
+        async function verifyLogin() {
             const pin = document.getElementById('pinInput').value;
-            if (pin === '1234') { 
-                currentUserRole = 'admin'; 
-                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block'); 
-                document.getElementById('expenseWidget').style.display = 'block'; 
-                document.getElementById('profitWidget').style.display = 'block'; 
-                unlockSystem(); 
-            } 
-            else if (pin === '0000') { 
-                currentUserRole = 'staff'; 
-                unlockSystem(); 
-            } 
-            else { alert("Invalid PIN!"); }
+            const username = document.getElementById('usernameInput')?.value || 'admin';
+            try {
+                const res = await api('/api/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, pin })
+                });
+                TOKEN = res.token;
+                currentUserRole = res.role.toLowerCase();
+                localStorage.setItem('iti_token', TOKEN);
+                if (currentUserRole === 'admin') {
+                    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+                    document.getElementById('expenseWidget').style.display = 'block';
+                    document.getElementById('profitWidget').style.display = 'block';
+                }
+                unlockSystem();
+            } catch (e) {
+                alert("Invalid PIN!");
+            }
         }
 
-        function unlockSystem() {
+        async function unlockSystem() {
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('pinInput').value = '';
-            populateFilters(); refreshUI(); renderExpenses(); renderAudit();
             addLog("System Login", `Logged in as ${currentUserRole.toUpperCase()}`);
+            await refreshAll();
         }
 
-        function logout() { 
+        async function refreshAll() {
+            try {
+                const students = await api('/api/students');
+                studentList = students;
+                db = {};
+                students.forEach(s => { db[s.name] = s; });
+                const dash = await api('/api/dashboard');
+                expenses = [];
+            } catch (e) {}
+            populateFilters(); refreshUI(); renderExpenses(); renderAudit();
+        }
+
+        function logout() {
             addLog("System Logout", `User logged out`);
-            currentUserRole = null; 
-            document.getElementById('loginOverlay').style.display = 'flex'; 
-            nav('dashboard'); 
+            TOKEN = null; currentUserRole = null;
+            localStorage.removeItem('iti_token');
+            document.getElementById('loginOverlay').style.display = 'flex';
+            nav('dashboard');
         }
 
         function nav(page) {
@@ -560,47 +591,46 @@
             if(page === 'audit') { renderAudit(); }
         }
 
-        function submitAdmission() {
+        async function submitAdmission() {
             let name = document.getElementById('addName').value.trim().toUpperCase();
             if(!name) return alert("Student Name is required!");
             if(db[name]) return alert("Student with this exact name already exists!");
-            
-            let totalFee = parseFloat(document.getElementById('addTotalFee').value) || 0;
-            let trade = document.getElementById('addTrade').value || "General";
-            
-            db[name] = {
-                appNo: document.getElementById('addAppNo').value || "N/A", 
-                trade: trade,
-                admYear: document.getElementById('addYear').value || new Date().getFullYear(), 
-                totalFee: totalFee,
-                fName: document.getElementById('addFName').value || "", 
+
+            const payload = {
+                name: name,
+                fatherName: document.getElementById('addFName').value || "",
+                appNo: document.getElementById('addAppNo').value || "N/A",
+                trade: document.getElementById('addTrade').value || "General",
+                admissionYear: document.getElementById('addYear').value || String(new Date().getFullYear()),
+                totalFee: parseFloat(document.getElementById('addTotalFee').value) || 0,
                 aadhaar: document.getElementById('addAadhaar').value || "",
-                mobile: document.getElementById('addMobile').value || "", 
+                mobile: document.getElementById('addMobile').value || "",
                 samagra: document.getElementById('addSamagra').value || "",
-                caste: document.getElementById('addCaste').value || "GEN", 
+                caste: document.getElementById('addCaste').value || "GEN",
                 income: document.getElementById('addIncome').value || "",
-                address: document.getElementById('addAddress').value || "", 
-                payments: []
+                address: document.getElementById('addAddress').value || ""
             };
-            
-            localStorage.setItem('iti_db_v14', JSON.stringify(db)); 
-            addLog("New Admission", `Admitted "${name}" in ${trade} (Fee: ₹${totalFee})`);
-            
-            alert("Saved Successfully!");
-            document.querySelectorAll('#view-admission input').forEach(input => input.value = ''); 
-            nav('dashboard'); refreshUI(); populateFilters();
+
+            try {
+                const created = await api('/api/students', { method: 'POST', body: JSON.stringify(payload) });
+                db[created.name] = created;
+                addLog("New Admission", `Admitted "${name}" in ${payload.trade} (Fee: ₹${payload.totalFee})`);
+                alert("Saved Successfully!");
+                document.querySelectorAll('#view-admission input').forEach(input => input.value = '');
+                nav('dashboard'); await refreshAll();
+            } catch (e) { alert("Failed to save: " + e.message); }
         }
 
         function populateFilters() {
             const years = new Set(), trades = new Set();
-            Object.values(db).forEach(st => { if(st.admYear) years.add(st.admYear); if(st.trade) trades.add(st.trade); });
-            
+            Object.values(db).forEach(st => { if(st.admissionYear) years.add(st.admissionYear); if(st.trade) trades.add(st.trade); });
+
             const ys = document.getElementById('yearFilter'), ts = document.getElementById('tradeFilter');
             const fys = document.getElementById('feeYearFilter'), fts = document.getElementById('feeTradeFilter');
-            
+
             ys.innerHTML = '<option value="All">All Years</option>'; ts.innerHTML = '<option value="All">All Trades</option>';
             fys.innerHTML = '<option value="All">All Years</option>'; fts.innerHTML = '<option value="All">All Trades</option>';
-            
+
             Array.from(years).sort().forEach(y => {
                 ys.innerHTML += `<option value="${y}">${y}</option>`; fys.innerHTML += `<option value="${y}">${y}</option>`;
             });
@@ -615,19 +645,19 @@
 
             Object.keys(db).sort().forEach(name => {
                 let st = db[name];
-                
-                if (sYear !== "All" && String(st.admYear) !== sYear) return;
+
+                if (sYear !== "All" && String(st.admissionYear) !== sYear) return;
                 if (sTrade !== "All" && st.trade !== sTrade) return;
 
                 if(name.toLowerCase().includes(query) || String(st.appNo).toLowerCase().includes(query)) {
-                    let paid = st.payments.reduce((sum, p) => sum + p.amount, 0), bal = st.totalFee - paid;
+                    let paid = st.paidAmount || 0, bal = st.balance || st.totalFee;
                     tStudents++; tCol += paid; tPending += bal;
-                    
+
                     let badge = bal <= 0 ? `<span class="badge badge-success">Cleared</span>` : (paid > 0 ? `<span class="badge badge-warning">Partial</span>` : `<span class="badge badge-danger">Unpaid</span>`);
-                    
+
                     tableHTML += `<tr>
                         <td><div style="font-weight:bold;">${name}</div><div style="font-size:12px; color:gray;">${st.trade}</div></td>
-                        <td>${st.fName || '-'}</td>
+                        <td>${st.fatherName || '-'}</td>
                         <td>${st.mobile || '-'}</td>
                         <td>${badge}</td>
                         <td style="font-weight:600;">₹${paid}</td>
@@ -644,15 +674,15 @@
 
             document.getElementById('dataTableBody').innerHTML = tableHTML;
             document.getElementById('stTotal').innerText = tStudents; document.getElementById('stCollected').innerText = "₹" + tCol.toLocaleString('en-IN'); document.getElementById('stPending').innerText = "₹" + tPending.toLocaleString('en-IN');
-            
+
             if(currentUserRole === 'admin') {
                 let tExp = expenses.reduce((sum, e) => sum + e.amount, 0);
                 document.getElementById('stExpense').innerText = "₹" + tExp.toLocaleString('en-IN');
                 document.getElementById('stNet').innerText = "₹" + (tCol - tExp).toLocaleString('en-IN');
             }
-            
+
             updateChart(tCol, tPending);
-            refreshFeeStudents(); 
+            refreshFeeStudents();
         }
 
         function refreshFeeStudents() {
@@ -663,11 +693,11 @@
 
             Object.keys(db).sort().forEach(name => {
                 let st = db[name];
-                if (sYear !== "All" && String(st.admYear) !== sYear) return;
+                if (sYear !== "All" && String(st.admissionYear) !== sYear) return;
                 if (sTrade !== "All" && st.trade !== sTrade) return;
 
                 if(name.toLowerCase().includes(query) || String(st.appNo).toLowerCase().includes(query)) {
-                    let paid = st.payments.reduce((sum, p) => sum + p.amount, 0), bal = st.totalFee - paid;
+                    let paid = st.paidAmount || 0, bal = st.balance || st.totalFee;
                     selectHTML += `<option value="${name}">${name} (${st.trade}) - Bal: ₹${bal}</option>`;
                 }
             });
@@ -679,7 +709,7 @@
             let tableHTML = document.querySelector('.table-wrapper').innerHTML;
             let currentFilter = `Year Filter: ${document.getElementById('yearFilter').value} | Trade Filter: ${document.getElementById('tradeFilter').value}`;
             addLog("Print List", "Printed Active Students List");
-            
+
             printWindow.document.write(`
                 <html><head><title>Student List - Sunshine ITI</title>
                 <style>body { font-family: sans-serif; padding: 20px; color: #333; } h2, p { text-align: center; } table { width: 100%; border-collapse: collapse; font-size: 13px; } th, td { border: 1px solid #ccc; padding: 10px; text-align: left; } th { background-color: #f1f5f9; } .no-print { display: none !important; }</style></head>
@@ -703,39 +733,51 @@
         }
 
         /* 💸 EXPENSE LOGIC 💸 */
-        function saveExpense() {
+        async function saveExpense() {
             let dt = document.getElementById('expDate').value, cat = document.getElementById('expCategory').value, amt = parseFloat(document.getElementById('expAmount').value), desc = document.getElementById('expDesc').value;
             if(!dt || isNaN(amt) || !desc) return alert("Fill all expense details!");
-            
-            expenses.push({ date: new Date(dt).toLocaleDateString('en-IN'), category: cat, amount: amt, desc: desc });
-            localStorage.setItem('iti_exp_v14', JSON.stringify(expenses));
-            
-            addLog("Add Expense", `₹${amt} logged for ${cat} (${desc})`);
-            
-            document.getElementById('expAmount').value = ""; document.getElementById('expDesc').value = ""; 
-            alert("Expense Recorded Successfully!"); renderExpenses(); refreshUI();
+
+            try {
+                const exp = await api('/api/expenses', {
+                    method: 'POST',
+                    body: JSON.stringify({ title: desc, amount: amt, expenseDate: dt, category: cat, note: '' })
+                });
+                expenses.push(exp);
+                addLog("Add Expense", `₹${amt} logged for ${cat} (${desc})`);
+                document.getElementById('expAmount').value = ""; document.getElementById('expDesc').value = "";
+                alert("Expense Recorded Successfully!"); renderExpenses();
+                const dash = await api('/api/dashboard');
+            } catch (e) { alert("Failed: " + e.message); }
+        }
+
+        async function loadExpenses() {
+            try {
+                expenses = await api('/api/expenses');
+                renderExpenses();
+            } catch (e) {}
         }
 
         function renderExpenses() {
-            let html = ""; 
+            let html = "";
             if (expenses.length === 0) {
                 html = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No expenses recorded yet</td></tr>';
             } else {
-                expenses.slice().reverse().forEach((e, i) => { 
+                expenses.slice().reverse().forEach((e, i) => {
                     let actualIndex = expenses.length - 1 - i;
-                    html += `<tr><td>${e.date}</td><td><span class="badge badge-neutral">${e.category}</span></td><td>${e.desc}</td><td style="color:var(--danger); font-weight:700;">₹${e.amount.toLocaleString('en-IN')}</td><td style="text-align:right;"><button onclick="deleteExpense(${actualIndex})" class="btn-icon bg-danger" title="Delete"><i class="fa-solid fa-trash"></i></button></td></tr>`; 
+                    html += `<tr><td>${e.expenseDate || '-'}</td><td><span class="badge badge-neutral">${e.category || '-'}</span></td><td>${e.title}</td><td style="color:var(--danger); font-weight:700;">₹${Number(e.amount).toLocaleString('en-IN')}</td><td style="text-align:right;"><button onclick="deleteExpense(${e.id})" class="btn-icon bg-danger" title="Delete"><i class="fa-solid fa-trash"></i></button></td></tr>`;
                 });
             }
             document.getElementById('expenseTableBody').innerHTML = html;
         }
 
-        function deleteExpense(index) {
+        async function deleteExpense(id) {
             if(confirm("Are you sure you want to delete this expense record?")) {
-                let e = expenses[index];
-                addLog("Delete Expense", `Removed expense: ₹${e.amount} for ${e.category}`);
-                expenses.splice(index, 1);
-                localStorage.setItem('iti_exp_v14', JSON.stringify(expenses));
-                renderExpenses(); refreshUI();
+                try {
+                    await api('/api/expenses/' + id, { method: 'DELETE' });
+                    expenses = expenses.filter(e => e.id !== id);
+                    addLog("Delete Expense", `Removed expense record`);
+                    renderExpenses();
+                } catch (e) { alert("Failed: " + e.message); }
             }
         }
 
@@ -744,11 +786,11 @@
             let st = db[name];
             document.getElementById('editOriginalName').value = name;
             document.getElementById('editName').value = name;
-            document.getElementById('editFName').value = st.fName || '';
+            document.getElementById('editFName').value = st.fatherName || '';
             document.getElementById('editAppNo').value = st.appNo || '';
             document.getElementById('editTrade').value = st.trade || '';
             document.getElementById('editTotalFee').value = st.totalFee || 0;
-            document.getElementById('editAdmYear').value = st.admYear || '';
+            document.getElementById('editAdmYear').value = st.admissionYear || '';
             document.getElementById('editMobile').value = st.mobile || '';
             document.getElementById('editAadhaar').value = st.aadhaar || '';
             document.getElementById('editSamagra').value = st.samagra || '';
@@ -757,45 +799,47 @@
             document.getElementById('editModal').style.display = 'block';
         }
 
-        function saveEditStudent() {
+        async function saveEditStudent() {
             let oldName = document.getElementById('editOriginalName').value;
             let newName = document.getElementById('editName').value.trim().toUpperCase();
             if(!newName) return alert("Name is required!");
 
-            let st = db[oldName];
-            st.fName = document.getElementById('editFName').value;
-            st.appNo = document.getElementById('editAppNo').value;
-            st.trade = document.getElementById('editTrade').value;
-            st.totalFee = parseFloat(document.getElementById('editTotalFee').value) || 0;
-            st.admYear = document.getElementById('editAdmYear').value;
-            st.mobile = document.getElementById('editMobile').value;
-            st.aadhaar = document.getElementById('editAadhaar').value;
-            st.samagra = document.getElementById('editSamagra').value;
-            st.caste = document.getElementById('editCaste').value;
-            st.address = document.getElementById('editAddress').value;
+            const st = db[oldName];
+            const payload = {
+                name: newName,
+                fatherName: document.getElementById('editFName').value,
+                appNo: document.getElementById('editAppNo').value,
+                trade: document.getElementById('editTrade').value,
+                admissionYear: document.getElementById('editAdmYear').value,
+                totalFee: parseFloat(document.getElementById('editTotalFee').value) || 0,
+                mobile: document.getElementById('editMobile').value,
+                aadhaar: document.getElementById('editAadhaar').value,
+                samagra: document.getElementById('editSamagra').value,
+                caste: document.getElementById('editCaste').value,
+                address: document.getElementById('editAddress').value
+            };
 
-            if(newName !== oldName) { db[newName] = st; delete db[oldName]; } else { db[oldName] = st; }
-
-            localStorage.setItem('iti_db_v14', JSON.stringify(db)); 
-            addLog("Edit Student", `Updated details for student "${newName}"`);
-            alert("Student Details Updated Successfully!");
-            document.getElementById('editModal').style.display = 'none'; populateFilters(); refreshUI();
+            try {
+                const updated = await api('/api/students/' + st.id, { method: 'PUT', body: JSON.stringify(payload) });
+                delete db[oldName];
+                db[updated.name] = updated;
+                addLog("Edit Student", `Updated details for student "${newName}"`);
+                alert("Student Details Updated Successfully!");
+                document.getElementById('editModal').style.display = 'none'; populateFilters(); refreshUI();
+            } catch (e) { alert("Failed: " + e.message); }
         }
 
-        /* 🗑️ DELETE (TO BIN) STUDENT LOGIC 🗑️ */
-        function deleteStudent(name) {
-            if(confirm(`Are you sure you want to move "${name}" to the Recycle Bin? Their data will no longer show in reports.`)) {
-                
-                bin[name] = db[name];
-                bin[name].deletedAt = new Date().toLocaleString('en-IN');
-                
-                delete db[name];
-                localStorage.setItem('iti_db_v14', JSON.stringify(db));
-                localStorage.setItem('iti_bin_v14', JSON.stringify(bin));
-                
-                addLog("Delete Student", `Moved student "${name}" to Recycle Bin.`);
-                alert(`${name} has been moved to Recycle Bin.`);
-                populateFilters(); refreshUI(); renderAudit();
+        /* 🗑️ DELETE STUDENT LOGIC 🗑️ */
+        async function deleteStudent(name) {
+            if(confirm(`Are you sure you want to permanently delete "${name}"?`)) {
+                const st = db[name];
+                try {
+                    await api('/api/students/' + st.id, { method: 'DELETE' });
+                    delete db[name];
+                    addLog("Delete Student", `Deleted student "${name}"`);
+                    alert(`${name} deleted successfully.`);
+                    populateFilters(); refreshUI(); renderAudit();
+                } catch (e) { alert("Failed: " + e.message); }
             }
         }
 
@@ -813,80 +857,125 @@
         }
 
         function buildReceiptUI(name, currentAmt = 0, currentMode = "", currentRemark = "") {
-            let st = db[name]; let receiptNo = "SUN-" + Date.now().toString().slice(-5); let rDate = new Date().toLocaleDateString('en-IN');
-            let tPaid = 0; let historyHTML = "";
-            [...st.payments].forEach(p => {
-                tPaid += p.amount; let currentBal = st.totalFee - tPaid;
-                historyHTML += `<tr><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0;">${p.date}</td><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0; font-weight:600;">${p.mode}</td><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0; font-weight:900; font-size:12px; text-align:right;">₹${p.amount.toLocaleString('en-IN')}</td><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0; text-align:right; color:#64748b;">₹${currentBal.toLocaleString('en-IN')}</td></tr>`;
+            let st = db[name];
+            if (!st) return;
+            let payments = st.payments || [];
+            let receiptNo = "SUN-" + Date.now().toString().slice(-5);
+            let rDate = new Date().toLocaleDateString('en-IN');
+            let tPaid = 0;
+            let historyHTML = "";
+            [...payments].forEach(p => {
+                tPaid += p.amount;
+                let currentBal = st.totalFee - tPaid;
+                historyHTML += `<tr><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0;">${p.paymentDate || p.date}</td><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0; font-weight:600;">${p.paymentMode || p.mode}</td><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0; font-weight:900; font-size:12px; text-align:right;">₹${Number(p.amount).toLocaleString('en-IN')}</td><td style="padding:4px 8px; border-bottom:1px solid #e2e8f0; text-align:right; color:#64748b;">₹${currentBal.toLocaleString('en-IN')}</td></tr>`;
             });
             let bal = st.totalFee - tPaid;
 
             function generateReceiptHalf(copyType) {
-                return `<div class="r-half"><div class="r-watermark">SUNSHINE ITI</div><div style="position:relative; z-index:2;"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 8px;"><div><h2 style="margin:0; font-size:18px; font-weight:900; letter-spacing:0.5px;">SUNSHINE PRIVATE ITI</h2><p style="margin:2px 0 0; font-size:11px; color:#475569;">Recognized by NCVT | Seoni, M.P. - 480661</p></div><div style="text-align:right; font-weight:bold; font-size:12px; border:2px solid #0f172a; padding:4px 8px; border-radius:6px; background:#f8fafc;">${copyType}</div></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom: 8px;"><div><b>Receipt No:</b> ${receiptNo}</div><div><b>Date:</b> ${rDate}</div></div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; background:#f8fafc; padding:8px; border:1px solid #cbd5e1; border-radius:8px; margin-bottom: 8px; font-size:11px;"><div><span style="color:gray;">Student Name:</span><br><b style="font-size:13px;">${name}</b></div><div><span style="color:gray;">Father's Name:</span><br><b>${st.fName || '-'}</b></div><div><span style="color:gray;">Course/Trade:</span><br><b>${st.trade}</b></div><div><span style="color:gray;">App No:</span><br><b>${st.appNo}</b></div></div>${currentAmt > 0 ? `<div style="background:#e0f2fe; padding:8px; border-radius:8px; border-left:4px solid var(--info); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:11px; color:#0369a1; text-transform:uppercase; font-weight:700;">Amount Received</div><div style="font-size:11px; color:#0284c7; margin-top:2px;">Mode: <b>${currentMode}</b> | Remark: ${currentRemark}</div></div><div style="font-size:22px; font-weight:900; color:#0284c7;">₹${currentAmt.toLocaleString('en-IN')}</div></div>` : ''}<h4 style="margin:0 0 5px 0; font-size:11px; color:#475569; text-transform:uppercase;">Payment History</h4><table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:8px;"><tr style="background:#0f172a; color:white;"><th style="padding:4px 8px; text-align:left; border-radius:6px 0 0 0;">Date</th><th style="padding:4px 8px; text-align:left;">Mode</th><th style="padding:4px 8px; text-align:right;">Paid Amount (₹)</th><th style="padding:4px 8px; text-align:right; border-radius:0 6px 0 0;">Bal (₹)</th></tr>${historyHTML}</table><div style="display:flex; justify-content:space-between; font-size:12px; background:#f1f5f9; padding:8px; border-radius:8px; border:1px solid #e2e8f0;"><div><span style="color:gray;">Total Fee:</span><br><b style="font-size:13px;">₹${st.totalFee.toLocaleString('en-IN')}</b></div><div style="color:var(--success);"><span style="color:gray;">Total Paid:</span><br><b style="font-size:13px;">₹${tPaid.toLocaleString('en-IN')}</b></div><div style="color:var(--danger);"><span style="color:gray;">Balance:</span><br><b style="font-size:13px;">₹${bal.toLocaleString('en-IN')}</b></div></div><div style="display:flex; justify-content:space-between; margin-top: 20px; font-size:11px; font-weight:bold;"><div style="border-top:1px solid #000; width:120px; text-align:center; padding-top:4px;">Student Sign</div><div style="border-top:1px solid #000; width:150px; text-align:center; padding-top:4px;">Authorized Signatory</div></div></div></div>`;
+                return `<div class="r-half"><div class="r-watermark">SUNSHINE ITI</div><div style="position:relative; z-index:2;"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 8px;"><div><h2 style="margin:0; font-size:18px; font-weight:900; letter-spacing:0.5px;">SUNSHINE PRIVATE ITI</h2><p style="margin:2px 0 0; font-size:11px; color:#475569;">Recognized by NCVT | Seoni, M.P. - 480661</p></div><div style="text-align:right; font-weight:bold; font-size:12px; border:2px solid #0f172a; padding:4px 8px; border-radius:6px; background:#f8fafc;">${copyType}</div></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom: 8px;"><div><b>Receipt No:</b> ${receiptNo}</div><div><b>Date:</b> ${rDate}</div></div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; background:#f8fafc; padding:8px; border:1px solid #cbd5e1; border-radius:8px; margin-bottom: 8px; font-size:11px;"><div><span style="color:gray;">Student Name:</span><br><b style="font-size:13px;">${name}</b></div><div><span style="color:gray;">Father's Name:</span><br><b>${st.fatherName || '-'}</b></div><div><span style="color:gray;">Course/Trade:</span><br><b>${st.trade}</b></div><div><span style="color:gray;">App No:</span><br><b>${st.appNo}</b></div></div>${currentAmt > 0 ? `<div style="background:#e0f2fe; padding:8px; border-radius:8px; border-left:4px solid var(--info); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:11px; color:#0369a1; text-transform:uppercase; font-weight:700;">Amount Received</div><div style="font-size:11px; color:#0284c7; margin-top:2px;">Mode: <b>${currentMode}</b> | Remark: ${currentRemark}</div></div><div style="font-size:22px; font-weight:900; color:#0284c7;">₹${currentAmt.toLocaleString('en-IN')}</div></div>` : ''}<h4 style="margin:0 0 5px 0; font-size:11px; color:#475569; text-transform:uppercase; letter-spacing:1px;">📋 Payment History</h4><table style="width:100%; border-collapse:collapse; font-size:11px;"><thead><tr style="background:#f1f5f9;"><th style="padding:4px 8px; text-align:left;">Date</th><th style="padding:4px 8px; text-align:left;">Mode</th><th style="padding:4px 8px; text-align:right;">Paid (₹)</th><th style="padding:4px 8px; text-align:right;">Balance (₹)</th></tr></thead><tbody>${historyHTML}</tbody></table><div style="margin-top:8px; padding:8px; border-top:2px dashed #cbd5e1; display:flex; justify-content:space-between; font-size:13px;"><div><b>Total Fee:</b> ₹${Number(st.totalFee).toLocaleString('en-IN')}</div><div><b>Total Paid:</b> ₹${tPaid.toLocaleString('en-IN')}</div><div style="font-weight:900; color:${bal>0?'var(--danger)':'var(--success)'};">${bal > 0 ? 'Balance Due: ₹' + bal.toLocaleString('en-IN') : '✅ Fully Paid'}</div></div></div><div class="r-footer"><span>SUNSHINE PRIVATE ITI, SEONI (M.P.)</span><span>Authorised Signatory</span></div></div>`;
             }
 
             document.getElementById('dualReceiptContainer').innerHTML = generateReceiptHalf("OFFICE COPY") + `<div class="cut-line">✂--------------------------------------------------✂</div>` + generateReceiptHalf("STUDENT COPY");
             document.getElementById('feeEntryForm').style.display = 'none'; document.getElementById('receiptArea').style.display = 'flex';
         }
 
-        function generateReceipt() {
+        async function generateReceipt() {
             let name = document.getElementById('studentSelect').value, amt = parseFloat(document.getElementById('paidFee').value), mode = document.getElementById('payMode').value, dt = document.getElementById('paymentDate').value, remark = document.getElementById('payRemark').value || '-';
             if(!name || isNaN(amt) || amt <= 0) return alert("Fill valid details!");
-            
-            db[name].payments.push({ date: new Date(dt).toLocaleDateString('en-IN'), amount: amt, mode: mode, remark: remark });
-            localStorage.setItem('iti_db_v14', JSON.stringify(db));
-            addLog("Collect Fee", `₹${amt} collected from "${name}" via ${mode}`);
-            
-            buildReceiptUI(name, amt, mode, remark);
-            document.getElementById('paidFee').value = ""; refreshUI();
+
+            const st = db[name];
+            try {
+                const payment = await api('/api/payments', {
+                    method: 'POST',
+                    body: JSON.stringify({ studentId: st.id, amount: amt, paymentDate: dt, paymentMode: mode, remark: remark })
+                });
+                if (!st.payments) st.payments = [];
+                st.payments.push(payment);
+                st.paidAmount = (st.paidAmount || 0) + amt;
+                st.balance = st.totalFee - st.paidAmount;
+                addLog("Collect Fee", `₹${amt} collected from "${name}" via ${mode}`);
+                buildReceiptUI(name, amt, mode, remark);
+                document.getElementById('paidFee').value = "";
+                refreshUI();
+            } catch (e) { alert("Failed: " + e.message); }
         }
 
-        function viewHistory(name) {
+        async function viewHistory(name) {
             document.getElementById('historyModal').style.display = 'block';
-            let st = db[name];
+            const st = db[name];
+            if (!st) return;
             let safeName = escQ(name);
+
+            try {
+                const fresh = await api('/api/students/' + st.id);
+                st.payments = fresh.payments || [];
+                db[name] = fresh;
+            } catch (e) {}
+
             let html = `<div style="background:#f1f5f9; padding:15px; border-radius:10px; margin-bottom:20px;"><p style="margin:0 0 10px 0;"><b>Name:</b> ${name} | <b>Trade:</b> ${st.trade}</p><button onclick="printPastReceipt('${safeName}')" class="btn-main" style="width:auto;"><i class="fa-solid fa-print"></i> Print Full Ledger (Dual Copy)</button></div><table style="width:100%; text-align:left; border-collapse:collapse;"><tr style="background:#0f172a; color:white;"><th style="padding:10px; border-radius:6px 0 0 0;">Date</th><th style="padding:10px;">Payment Mode</th><th style="padding:10px;">Remark</th><th style="padding:10px;">Paid Amount (₹)</th><th style="padding:10px; border-radius:0 6px 0 0; text-align:right;">Action</th></tr>`;
-            
-            st.payments.forEach((p, index) => { 
-                html += `<tr><td style="padding:10px; border-bottom:1px solid #e2e8f0;">${p.date}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:bold;">${p.mode}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:12px; color:gray;">${p.remark || '-'}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:900; font-size:15px; color:var(--primary);">₹${p.amount.toLocaleString('en-IN')}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; text-align:right;"><button onclick="openEditPaymentModal('${safeName}', ${index})" class="btn-icon bg-warning" title="Edit Fee"><i class="fa-solid fa-pen"></i></button><button onclick="deleteSinglePayment('${safeName}', ${index})" class="btn-icon bg-danger" title="Delete Fee"><i class="fa-solid fa-trash"></i></button></td></tr>`; 
+
+            (st.payments || []).forEach((p, index) => {
+                html += `<tr><td style="padding:10px; border-bottom:1px solid #e2e8f0;">${p.paymentDate || p.date}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:bold;">${p.paymentMode || p.mode}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:12px; color:gray;">${p.remark || '-'}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:900; font-size:15px; color:var(--primary);">₹${Number(p.amount).toLocaleString('en-IN')}</td><td style="padding:10px; border-bottom:1px solid #e2e8f0; text-align:right;"><button onclick="openEditPaymentModal('${safeName}', ${index})" class="btn-icon bg-warning" title="Edit Fee"><i class="fa-solid fa-pen"></i></button><button onclick="deleteSinglePayment('${safeName}', ${index})" class="btn-icon bg-danger" title="Delete Fee"><i class="fa-solid fa-trash"></i></button></td></tr>`;
             });
             document.getElementById('modalContentData').innerHTML = html + "</table>";
         }
 
         function openEditPaymentModal(name, index) {
-            let p = db[name].payments[index];
+            let payments = db[name]?.payments || [];
+            let p = payments[index];
+            if (!p) return;
             document.getElementById('epName').value = name;
             document.getElementById('epIndex').value = index;
-            document.getElementById('epDate').value = p.date;
+            document.getElementById('epDate').value = p.paymentDate || p.date || '';
             document.getElementById('epAmount').value = p.amount;
-            document.getElementById('epMode').value = p.mode;
+            document.getElementById('epMode').value = p.paymentMode || p.mode || '';
             document.getElementById('epRemark').value = p.remark || '';
             document.getElementById('editPaymentModal').style.display = 'block';
         }
 
-        function savePaymentEdit() {
-            let name = document.getElementById('epName').value; let index = parseInt(document.getElementById('epIndex').value);
-            let p = db[name].payments[index];
-            
+        async function savePaymentEdit() {
+            let name = document.getElementById('epName').value;
+            let index = parseInt(document.getElementById('epIndex').value);
+            let payments = db[name]?.payments || [];
+            let p = payments[index];
+            if (!p) return;
+
             let oldAmt = p.amount;
-            p.date = document.getElementById('epDate').value;
-            p.amount = parseFloat(document.getElementById('epAmount').value) || 0;
-            p.mode = document.getElementById('epMode').value;
-            p.remark = document.getElementById('epRemark').value;
-            
-            localStorage.setItem('iti_db_v14', JSON.stringify(db));
-            addLog("Edit Payment", `Edited payment for "${name}" (Amount: ₹${oldAmt} -> ₹${p.amount})`);
-            
-            alert("Fee Record Updated Successfully!"); document.getElementById('editPaymentModal').style.display = 'none'; refreshUI(); viewHistory(name);
+            let newAmt = parseFloat(document.getElementById('epAmount').value) || 0;
+
+            try {
+                const updated = await api('/api/payments/' + p.id, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        studentId: db[name].id,
+                        amount: newAmt,
+                        paymentDate: document.getElementById('epDate').value,
+                        paymentMode: document.getElementById('epMode').value,
+                        remark: document.getElementById('epRemark').value
+                    })
+                });
+                p.amount = newAmt;
+                p.paymentDate = document.getElementById('epDate').value;
+                p.paymentMode = document.getElementById('epMode').value;
+                p.remark = document.getElementById('epRemark').value;
+                addLog("Edit Payment", `Edited payment for "${name}" (Amount: ₹${oldAmt} -> ₹${newAmt})`);
+                alert("Fee Record Updated Successfully!");
+                document.getElementById('editPaymentModal').style.display = 'none';
+                await refreshAll();
+            } catch (e) { alert("Failed: " + e.message); }
         }
 
-        function deleteSinglePayment(name, index) {
+        async function deleteSinglePayment(name, index) {
             if(confirm("Are you sure you want to permanently delete this specific fee payment?")) {
-                let deletedAmt = db[name].payments[index].amount;
-                db[name].payments.splice(index, 1);
-                localStorage.setItem('iti_db_v14', JSON.stringify(db));
-                addLog("Delete Payment", `Deleted ₹${deletedAmt} payment record of "${name}"`);
-                refreshUI(); viewHistory(name); 
+                let payments = db[name]?.payments || [];
+                let p = payments[index];
+                if (!p) return;
+                try {
+                    await api('/api/payments/' + p.id, { method: 'DELETE' });
+                    payments.splice(index, 1);
+                    addLog("Delete Payment", `Deleted ₹${p.amount} payment record of "${name}"`);
+                    await refreshAll();
+                } catch (e) { alert("Failed: " + e.message); }
             }
         }
 
@@ -899,39 +988,56 @@
         }
 
         /* ⬆️ UPLOAD EXCEL LOGIC ⬆️ */
-        function uploadExcel() {
+        async function uploadExcel() {
             const file = document.getElementById('excelFile').files[0]; if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 const data = new Uint8Array(e.target.result), workbook = XLSX.read(data, {type: 'array'}), jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                 let count = 0;
-                jsonData.forEach(row => {
+                for (const row of jsonData) {
                     let stName = row["Student Name"] || row["Name"];
                     let totalF = parseFloat(row["Total Course Fee"] || row["Total Fee"]) || 0;
                     if (stName && totalF) {
                         let nameKey = String(stName).trim().toUpperCase();
                         if (!db[nameKey]) {
-                            db[nameKey] = { appNo: row["App No"] || row["Application Number"] || "N/A", trade: row["Course/Trade"] || row["Trade"] || "General", admYear: row["Admission Year"] || row["Year"] || new Date().getFullYear(), totalFee: totalF, fName: row["Father Name"] || row["Father's Name"] || "", aadhaar: row["Aadhaar Number"] || "", mobile: row["Mobile Number"] || "", samagra: row["Samagra ID"] || "", caste: row["Caste"] || "GEN", income: row["Family Income"] || row["Income"] || "", address: row["Address"] || "", payments: [] };
-                            count++;
+                            try {
+                                await api('/api/students', {
+                                    method: 'POST',
+                                    body: JSON.stringify({
+                                        name: nameKey,
+                                        fatherName: row["Father Name"] || row["Father's Name"] || "",
+                                        appNo: row["App No"] || row["Application Number"] || "N/A",
+                                        trade: row["Course/Trade"] || row["Trade"] || "General",
+                                        admissionYear: String(row["Admission Year"] || row["Year"] || new Date().getFullYear()),
+                                        totalFee: totalF,
+                                        aadhaar: row["Aadhaar Number"] || "",
+                                        mobile: row["Mobile Number"] || "",
+                                        samagra: row["Samagra ID"] || "",
+                                        caste: row["Caste"] || "GEN",
+                                        income: row["Family Income"] || row["Income"] || "",
+                                        address: row["Address"] || ""
+                                    })
+                                });
+                                count++;
+                            } catch (err) {}
                         }
                     }
-                });
-                localStorage.setItem('iti_db_v14', JSON.stringify(db)); 
+                }
                 addLog("Excel Upload", `Imported ${count} new student records via Excel.`);
-                populateFilters(); refreshUI(); alert(`${count} Students Successfully Imported.`); document.getElementById('excelFile').value = ''; 
+                await refreshAll();
+                alert(`${count} Students Successfully Imported.`);
+                document.getElementById('excelFile').value = '';
             }; reader.readAsArrayBuffer(file);
         }
 
-        function clearData() { 
-            if(confirm("🚨 WARNING: DELETE ALL DATA? This will wipe the entire system.")) { 
+        function clearData() {
+            if(confirm("🚨 WARNING: DELETE ALL DATA? This will wipe the entire system.")) {
                 db = {}; bin = {}; logs = []; expenses = [];
-                localStorage.removeItem('iti_db_v14'); 
-                localStorage.removeItem('iti_exp_v14'); 
-                localStorage.removeItem('iti_bin_v14'); 
-                localStorage.removeItem('iti_logs_v14'); 
+                localStorage.removeItem('iti_logs_v14');
+                localStorage.removeItem('iti_bin_v14');
                 addLog("Master Reset", "Entire Database Wiped.");
-                refreshUI(); renderAudit(); alert("Erased Successfully."); 
-            } 
+                refreshUI(); renderAudit(); alert("Erased Successfully.");
+            }
         }
     </script>
 </body>
