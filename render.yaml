@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: profees-backend
+    env: docker
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:mysql://adminITI:3306/profees?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - key: SPRING_DATASOURCE_USERNAME
+        value: root
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: SERVER_PORT
+        value: 8080
