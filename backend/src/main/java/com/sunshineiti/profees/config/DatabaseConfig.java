@@ -26,12 +26,16 @@ public class DatabaseConfig {
 
     @Bean
     public DataSource dataSource() throws URISyntaxException {
-        // If deployed on Render with PostgreSQL, parse the postgres:// URL
-        if (databaseUrl != null && !databaseUrl.trim().isEmpty() && databaseUrl.startsWith("postgres://")) {
+        // If deployed on Render with an external DB (like Clever Cloud MySQL or Neon PostgreSQL)
+        if (databaseUrl != null && !databaseUrl.trim().isEmpty() && 
+            (databaseUrl.startsWith("postgres://") || databaseUrl.startsWith("mysql://"))) {
+            
             URI dbUri = new URI(databaseUrl);
             String username = dbUri.getUserInfo().split(":")[0];
             String password = dbUri.getUserInfo().split(":")[1];
-            String dbUrl = "jdbc:postgresql://" + dbUri.getHost() + ':' + dbUri.getPort() + dbUri.getPath();
+            
+            String jdbcPrefix = databaseUrl.startsWith("postgres://") ? "jdbc:postgresql://" : "jdbc:mysql://";
+            String dbUrl = jdbcPrefix + dbUri.getHost() + (dbUri.getPort() > 0 ? ":" + dbUri.getPort() : "") + dbUri.getPath();
             
             return DataSourceBuilder.create()
                     .url(dbUrl)
