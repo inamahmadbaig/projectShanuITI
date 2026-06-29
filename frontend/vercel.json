@@ -1,14 +1,14 @@
 {
   "builds": [
     {
-      "src": "pro fees.html",
+      "src": "index.html",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/pro fees.html"
+      "dest": "/index.html"
     }
   ]
 }
