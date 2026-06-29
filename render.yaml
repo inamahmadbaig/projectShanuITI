@@ -3,6 +3,7 @@ services:
     name: profees-backend
     env: docker
     region: singapore
+    plan: free
     dockerfilePath: ./backend/Dockerfile
     envVars:
       - key: SERVER_PORT
