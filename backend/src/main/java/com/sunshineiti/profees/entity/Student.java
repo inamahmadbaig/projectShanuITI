@@ -44,6 +44,12 @@ public class Student {
 
     private String address;
 
+    @Column(name = "photo_url")
+    private String photoUrl;
+
+    @Column(name = "document_url")
+    private String documentUrl;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -90,6 +96,10 @@ public class Student {
     public void setIncome(String income) { this.income = income; }
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
+    public String getDocumentUrl() { return documentUrl; }
+    public void setDocumentUrl(String documentUrl) { this.documentUrl = documentUrl; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

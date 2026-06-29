@@ -80,6 +80,8 @@ public class StudentService {
         student.setCaste(dto.getCaste());
         student.setIncome(dto.getIncome());
         student.setAddress(dto.getAddress());
+        student.setPhotoUrl(dto.getPhotoUrl());
+        student.setDocumentUrl(dto.getDocumentUrl());
     }
 
     public StudentDTO toDTO(Student student) {
@@ -97,6 +99,8 @@ public class StudentService {
         dto.setCaste(student.getCaste());
         dto.setIncome(student.getIncome());
         dto.setAddress(student.getAddress());
+        dto.setPhotoUrl(student.getPhotoUrl());
+        dto.setDocumentUrl(student.getDocumentUrl());
 
         BigDecimal paid = paymentRepository.getTotalPaidByStudentId(student.getId());
         dto.setPaidAmount(paid);

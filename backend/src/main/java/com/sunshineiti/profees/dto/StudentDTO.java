@@ -23,6 +23,8 @@ public class StudentDTO {
     private String caste;
     private String income;
     private String address;
+    private String photoUrl;
+    private String documentUrl;
     private List<PaymentDTO> payments;
 
     public Long getId() { return id; }
@@ -55,6 +57,10 @@ public class StudentDTO {
     public void setIncome(String income) { this.income = income; }
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
+    public String getDocumentUrl() { return documentUrl; }
+    public void setDocumentUrl(String documentUrl) { this.documentUrl = documentUrl; }
     public List<PaymentDTO> getPayments() { return payments; }
     public void setPayments(List<PaymentDTO> payments) { this.payments = payments; }
 }
