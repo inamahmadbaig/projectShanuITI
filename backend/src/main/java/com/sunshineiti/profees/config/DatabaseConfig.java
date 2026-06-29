@@ -47,6 +47,11 @@ public class DatabaseConfig {
             String jdbcPrefix = targetUrl.startsWith("postgres://") ? "jdbc:postgresql://" : "jdbc:mysql://";
             String dbUrl = jdbcPrefix + dbUri.getHost() + (dbUri.getPort() > 0 ? ":" + dbUri.getPort() : "") + dbUri.getPath();
             
+            // Append necessary parameters for MySQL to prevent "Public Key Retrieval" and SSL errors
+            if (jdbcPrefix.equals("jdbc:mysql://")) {
+                dbUrl += "?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+            }
+            
             return DataSourceBuilder.create()
                     .url(dbUrl)
                     .username(username)
