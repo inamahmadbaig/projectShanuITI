@@ -52,10 +52,13 @@ public class DatabaseConfig {
                 dbUrl += "?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
             }
             
+            System.out.println("Initializing Database with URL: " + dbUrl + " and username: " + username);
+
             return DataSourceBuilder.create()
                     .url(dbUrl)
                     .username(username)
                     .password(password)
+                    .driverClassName(targetUrl.startsWith("postgres://") ? "org.postgresql.Driver" : "com.mysql.cj.jdbc.Driver")
                     .build();
         }
         
