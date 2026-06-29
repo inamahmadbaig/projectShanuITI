@@ -27,13 +27,17 @@ public class DatabaseConfig {
     @Bean
     public DataSource dataSource() throws URISyntaxException {
         
-        String targetUrl = databaseUrl;
-        if (targetUrl == null || targetUrl.trim().isEmpty() || targetUrl.startsWith("jdbc:")) {
-            targetUrl = springDatasourceUrl;
-        }
+        String dUrl = databaseUrl != null ? databaseUrl.trim() : "";
+        String sUrl = springDatasourceUrl != null ? springDatasourceUrl.trim() : "";
+
+        // Remove markdown backticks if the user accidentally copied them
+        dUrl = dUrl.replace("`", "").replace("text", "").trim();
+        sUrl = sUrl.replace("`", "").replace("text", "").trim();
+        
+        String targetUrl = !dUrl.isEmpty() && !dUrl.startsWith("jdbc:") ? dUrl : sUrl;
 
         // If deployed on Render with an external DB (like Clever Cloud MySQL or Neon PostgreSQL)
-        if (targetUrl != null && !targetUrl.trim().isEmpty() && 
+        if (targetUrl != null && !targetUrl.isEmpty() && 
             (targetUrl.startsWith("postgres://") || targetUrl.startsWith("mysql://"))) {
             
             URI dbUri = new URI(targetUrl);
