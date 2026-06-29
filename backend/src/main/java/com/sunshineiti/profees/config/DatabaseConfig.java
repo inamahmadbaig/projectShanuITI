@@ -36,6 +36,14 @@ public class DatabaseConfig {
         
         String targetUrl = !dUrl.isEmpty() && !dUrl.startsWith("jdbc:") ? dUrl : sUrl;
 
+        // If we have a URL but it's not starting with the correct scheme, throw a very clear error
+        if (targetUrl != null && !targetUrl.isEmpty() && !targetUrl.startsWith("jdbc:") 
+            && !targetUrl.startsWith("postgres://") && !targetUrl.startsWith("mysql://")) {
+            throw new IllegalArgumentException("\n\n❌ ERROR: Your DATABASE_URL or SPRING_DATASOURCE_URL is incorrect!\n" +
+                "You entered: '" + targetUrl + "'\n" +
+                "It MUST start with 'mysql://' or 'postgres://'. Please check your Render Environment Variables.\n\n");
+        }
+
         // If deployed on Render with an external DB (like Clever Cloud MySQL or Neon PostgreSQL)
         if (targetUrl != null && !targetUrl.isEmpty() && 
             (targetUrl.startsWith("postgres://") || targetUrl.startsWith("mysql://"))) {
@@ -62,6 +70,7 @@ public class DatabaseConfig {
                     .build();
         }
         
+        System.out.println("FALLBACK: Initializing Local Database with URL: " + springDatasourceUrl);
         // Fallback to default application.properties (e.g., Local MySQL)
         return DataSourceBuilder.create()
                 .url(springDatasourceUrl)
