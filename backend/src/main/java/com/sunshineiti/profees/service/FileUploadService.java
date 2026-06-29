@@ -28,6 +28,7 @@ public class FileUploadService {
 
         Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
                 "public_id", publicId,
+                "folder", "profees_documents", // Uploads will go into this folder in Cloudinary
                 "resource_type", "auto" // Automatically detect if it's an image or raw document
         ));
 
