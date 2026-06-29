@@ -9,15 +9,6 @@ services:
       - key: SERVER_PORT
         value: 8080
       - key: DATABASE_URL
-        fromDatabase:
-          name: profees-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
-
-databases:
-  - name: profees-db
-    region: singapore
-    plan: free
-    databaseName: adminiti
-    ipAllowList: []
