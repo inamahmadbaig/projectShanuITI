@@ -2,6 +2,7 @@ package com.sunshineiti.profees.controller;
 
 import com.sunshineiti.profees.dto.StudentDTO;
 import com.sunshineiti.profees.service.StudentService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,12 +34,12 @@ public class StudentController {
     }
 
     @PostMapping
-    public ResponseEntity<StudentDTO> createStudent(@RequestBody StudentDTO dto) {
+    public ResponseEntity<StudentDTO> createStudent(@Valid @RequestBody StudentDTO dto) {
         return ResponseEntity.ok(studentService.createStudent(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<StudentDTO> updateStudent(@PathVariable Long id, @RequestBody StudentDTO dto) {
+    public ResponseEntity<StudentDTO> updateStudent(@PathVariable Long id, @Valid @RequestBody StudentDTO dto) {
         return ResponseEntity.ok(studentService.updateStudent(id, dto));
     }
 

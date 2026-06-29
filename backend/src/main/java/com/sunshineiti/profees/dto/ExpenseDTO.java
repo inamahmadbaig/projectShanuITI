@@ -1,11 +1,15 @@
 package com.sunshineiti.profees.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class ExpenseDTO {
     private Long id;
+    @NotBlank
     private String title;
+    @NotNull
     private BigDecimal amount;
     private LocalDate expenseDate;
     private String category;

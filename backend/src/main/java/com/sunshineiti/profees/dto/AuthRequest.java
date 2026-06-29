@@ -1,7 +1,11 @@
 package com.sunshineiti.profees.dto;
 
+import jakarta.validation.constraints.NotBlank;
+
 public class AuthRequest {
+    @NotBlank
     private String username;
+    @NotBlank
     private String pin;
 
     public String getUsername() { return username; }

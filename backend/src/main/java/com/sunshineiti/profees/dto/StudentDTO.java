@@ -1,15 +1,19 @@
 package com.sunshineiti.profees.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.List;
 
 public class StudentDTO {
     private Long id;
+    @NotBlank
     private String name;
     private String fatherName;
     private String appNo;
     private String trade;
     private String admissionYear;
+    @NotNull
     private BigDecimal totalFee;
     private BigDecimal paidAmount;
     private BigDecimal balance;

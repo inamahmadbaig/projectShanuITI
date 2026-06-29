@@ -1,12 +1,15 @@
 package com.sunshineiti.profees.dto;
 
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class PaymentDTO {
     private Long id;
+    @NotNull
     private Long studentId;
     private String studentName;
+    @NotNull
     private BigDecimal amount;
     private LocalDate paymentDate;
     private String paymentMode;

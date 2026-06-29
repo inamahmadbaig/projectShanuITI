@@ -2,6 +2,7 @@ package com.sunshineiti.profees.controller;
 
 import com.sunshineiti.profees.dto.PaymentDTO;
 import com.sunshineiti.profees.service.PaymentService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,12 +24,12 @@ public class PaymentController {
     }
 
     @PostMapping
-    public ResponseEntity<PaymentDTO> createPayment(@RequestBody PaymentDTO dto) {
+    public ResponseEntity<PaymentDTO> createPayment(@Valid @RequestBody PaymentDTO dto) {
         return ResponseEntity.ok(paymentService.createPayment(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<PaymentDTO> updatePayment(@PathVariable Long id, @RequestBody PaymentDTO dto) {
+    public ResponseEntity<PaymentDTO> updatePayment(@PathVariable Long id, @Valid @RequestBody PaymentDTO dto) {
         return ResponseEntity.ok(paymentService.updatePayment(id, dto));
     }
 

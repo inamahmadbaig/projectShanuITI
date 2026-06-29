@@ -2,6 +2,7 @@ package com.sunshineiti.profees.controller;
 
 import com.sunshineiti.profees.dto.ExpenseDTO;
 import com.sunshineiti.profees.service.ExpenseService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,7 +24,7 @@ public class ExpenseController {
     }
 
     @PostMapping
-    public ResponseEntity<ExpenseDTO> createExpense(@RequestBody ExpenseDTO dto) {
+    public ResponseEntity<ExpenseDTO> createExpense(@Valid @RequestBody ExpenseDTO dto) {
         return ResponseEntity.ok(expenseService.createExpense(dto));
     }
 
