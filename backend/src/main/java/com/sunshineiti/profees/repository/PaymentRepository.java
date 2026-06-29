@@ -11,12 +11,12 @@ import java.util.List;
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByStudentIdOrderByPaymentDateDesc(Long studentId);
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.student.id = :studentId")
+    @Query("SELECT SUM(p.amount) FROM Payment p WHERE p.student.id = :studentId")
     BigDecimal getTotalPaidByStudentId(@Param("studentId") Long studentId);
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p")
+    @Query("SELECT SUM(p.amount) FROM Payment p")
     BigDecimal getTotalCollected();
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.paymentDate BETWEEN :start AND :end")
+    @Query("SELECT SUM(p.amount) FROM Payment p WHERE p.paymentDate BETWEEN :start AND :end")
     BigDecimal getTotalCollectedBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
 }

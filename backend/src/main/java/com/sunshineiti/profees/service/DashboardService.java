@@ -32,6 +32,7 @@ public class DashboardService {
         dto.setTotalStudents(studentRepository.count());
 
         BigDecimal totalCollected = paymentRepository.getTotalCollected();
+        if (totalCollected == null) totalCollected = BigDecimal.ZERO;
         dto.setTotalCollected(totalCollected);
 
         BigDecimal totalFees = studentRepository.findAll().stream()
@@ -40,6 +41,7 @@ public class DashboardService {
         dto.setTotalPending(totalFees.subtract(totalCollected));
 
         BigDecimal totalExpenses = expenseRepository.getTotalExpenses();
+        if (totalExpenses == null) totalExpenses = BigDecimal.ZERO;
         dto.setTotalExpenses(totalExpenses);
 
         dto.setNetBalance(totalCollected.subtract(totalExpenses));

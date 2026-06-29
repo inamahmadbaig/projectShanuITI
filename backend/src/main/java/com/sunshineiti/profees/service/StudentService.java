@@ -103,6 +103,7 @@ public class StudentService {
         dto.setDocumentUrl(student.getDocumentUrl());
 
         BigDecimal paid = paymentRepository.getTotalPaidByStudentId(student.getId());
+        if (paid == null) paid = BigDecimal.ZERO;
         dto.setPaidAmount(paid);
         BigDecimal totalFee = student.getTotalFee() != null ? student.getTotalFee() : BigDecimal.ZERO;
         dto.setBalance(totalFee.subtract(paid));
