@@ -26,15 +26,21 @@ public class DatabaseConfig {
 
     @Bean
     public DataSource dataSource() throws URISyntaxException {
+        
+        String targetUrl = databaseUrl;
+        if (targetUrl == null || targetUrl.trim().isEmpty() || targetUrl.startsWith("jdbc:")) {
+            targetUrl = springDatasourceUrl;
+        }
+
         // If deployed on Render with an external DB (like Clever Cloud MySQL or Neon PostgreSQL)
-        if (databaseUrl != null && !databaseUrl.trim().isEmpty() && 
-            (databaseUrl.startsWith("postgres://") || databaseUrl.startsWith("mysql://"))) {
+        if (targetUrl != null && !targetUrl.trim().isEmpty() && 
+            (targetUrl.startsWith("postgres://") || targetUrl.startsWith("mysql://"))) {
             
-            URI dbUri = new URI(databaseUrl);
-            String username = dbUri.getUserInfo().split(":")[0];
-            String password = dbUri.getUserInfo().split(":")[1];
+            URI dbUri = new URI(targetUrl);
+            String username = dbUri.getUserInfo() != null ? dbUri.getUserInfo().split(":")[0] : springDatasourceUsername;
+            String password = dbUri.getUserInfo() != null && dbUri.getUserInfo().contains(":") ? dbUri.getUserInfo().split(":")[1] : springDatasourcePassword;
             
-            String jdbcPrefix = databaseUrl.startsWith("postgres://") ? "jdbc:postgresql://" : "jdbc:mysql://";
+            String jdbcPrefix = targetUrl.startsWith("postgres://") ? "jdbc:postgresql://" : "jdbc:mysql://";
             String dbUrl = jdbcPrefix + dbUri.getHost() + (dbUri.getPort() > 0 ? ":" + dbUri.getPort() : "") + dbUri.getPath();
             
             return DataSourceBuilder.create()
